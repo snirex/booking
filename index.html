@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת הזמנת מחשבים</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body { background-color: #f8f9fa; }
+        .computer-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            border-radius: 12px;
+        }
+        .computer-card:hover { transform: translateY(-3px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .status-free { border-top: 5px solid #198754; background-color: #ffffff; }
+        .status-taken { border-top: 5px solid #dc3545; background-color: #fff5f5; cursor: not-allowed; opacity: 0.9; }
+        .date-scroller {
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 10px;
+            -webkit-overflow-scrolling: touch; /* Smooth scroll on iOS */
+        }
+        .date-btn { display: inline-block; width: 100px; margin-left: 5px; }
+        .date-btn.active { background-color: #0d6efd; color: white; border-color: #0d6efd; }
+    </style>
+</head>
+
+<body>
+
+    <div x-data="bookingApp()" x-init="initApp()" class="container py-4">
+
+        <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm rounded mb-4 px-3">
+            <a class="navbar-brand fw-bold" href="#"><i class="fas fa-laptop-code text-primary"></i> WorkStation Booker</a>
+            <div class="ms-auto" style="margin-left: 0 !important;">
+                <button @click="showAdminModal = true" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-cog"></i>
+                </button>
+            </div>
+        </nav>
+
+        <div class="mb-4">
+            <h5 class="mb-3">בחר תאריך להזמנה:</h5>
+            <div class="date-scroller">
+                <template x-for="dateObj in availableDates" :key="dateObj.value">
+                    <button 
+                        class="btn btn-outline-primary date-btn" 
+                        :class="{ 'active': selectedDate === dateObj.value }"
+                        @click="selectedDate = dateObj.value">
+                        <div class="fw-bold" x-text="dateObj.dayName"></div>
+                        <div class="small" x-text="dateObj.formatted"></div>
+                    </button>
+                </template>
+            </div>
+        </div>
+
+        <div class="alert alert-info d-flex justify-content-between align-items-center">
+            <span>
+                <i class="fas fa-calendar-day"></i> מציג מחשבים לתאריך: <strong x-text="formatDate(selectedDate)"></strong>
+            </span>
+            <span class="badge bg-primary" x-text="getAvailabilityText()"></span>
+        </div>
+
+        <div class="row g-3">
+            <template x-for="i in settings.totalComputers" :key="i">
+                <div class="col-6 col-md-4 col-lg-3">
+                    <div class="card computer-card h-100 shadow-sm"
+                         :class="isBooked(i) ? 'status-taken' : 'status-free'"
+                         @click="openBookingModal(i)">
+                        
+                        <div class="card-body text-center">
+                            <h5 class="card-title mb-3">מחשב <span x-text="i"></span></h5>
+                            
+                            <template x-if="isBooked(i)">
+                                <div>
+                                    <div class="text-danger mb-2"><i class="fas fa-lock"></i> תפוס</div>
+                                    <div class="small text-muted" x-text="getBookingDetails(i).name"></div>
+                                    <div class="small text-muted" x-text="getBookingDetails(i).phone"></div>
+                                    <button @click.stop="cancelBooking(i)" class="btn btn-sm btn-link text-danger mt-2" style="font-size:0.8rem">בטל הזמנה</button>
+                                </div>
+                            </template>
+
+                            <template x-if="!isBooked(i)">
+                                <div>
+                                    <div class="text-success mb-2"><i class="fas fa-check-circle"></i> פנוי</div>
+                                    <button class="btn btn-sm btn-outline-success w-100">שריין עכשיו</button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <div class="modal fade" id="bookingModal" tabindex="-1" aria-hidden="true" x-ref="bookingModalElement">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">שריין את מחשב מס' <span x-text="currentComputerId"></span></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" style="margin: 0 !important;"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="confirmBooking">
+                            <div class="mb-3">
+                                <label class="form-label">שם מלא</label>
+                                <input type="text" class="form-control" x-model="bookingForm.name" required placeholder="לדוגמה: ישראל ישראלי">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">מספר טלפון</label>
+                                <input type="tel" class="form-control" x-model="bookingForm.phone" required placeholder="050-1234567">
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-success">אישור הזמנה</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="adminModal" tabindex="-1" x-ref="adminModalElement">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title">הגדרות ניהול</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" @click="showAdminModal = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div x-show="!isAdminAuthenticated">
+                            <div class="mb-3">
+                                <label>סיסמת ניהול</label>
+                                <input type="password" class="form-control" x-model="adminPassword">
+                            </div>
+                            <button @click="checkAdmin()" class="btn btn-primary w-100">כנס</button>
+                        </div>
+
+                        <div x-show="isAdminAuthenticated">
+                            <div class="mb-3">
+                                <label class="form-label">כמות מחשבים בחדר</label>
+                                <input type="number" class="form-control" x-model.number="tempSettings.totalComputers">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">טווח ימים להזמנה קדימה</label>
+                                <input type="number" class="form-control" x-model.number="tempSettings.bookingWindowDays">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">גודל צוות (למידע בלבד)</label>
+                                <input type="number" class="form-control" x-model.number="tempSettings.teamSize">
+                            </div>
+                            <hr>
+                            <button @click="saveSettings()" class="btn btn-primary w-100 mb-2">שמור שינויים</button>
+                            <button @click="resetAllData()" class="btn btn-danger w-100">איפוס כל הנתונים</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('bookingApp', () => ({
+                // Data Model
+                settings: {
+                    totalComputers: 10,
+                    bookingWindowDays: 14,
+                    teamSize: 20
+                },
+                tempSettings: {}, // For admin form
+                bookings: [], // [{ date: '2023-10-27', computerId: 1, name: 'X', phone: 'Y' }]
+                
+                // UI State
+                selectedDate: '',
+                availableDates: [],
+                currentComputerId: null,
+                bookingForm: { name: '', phone: '' },
+                
+                // Admin State
+                showAdminModal: false,
+                adminPassword: '',
+                isAdminAuthenticated: false,
+                bsBookingModal: null,
+                bsAdminModal: null,
+
+                initApp() {
+                    // 1. Load from LocalStorage
+                    const savedSettings = localStorage.getItem('booking_settings');
+                    const savedBookings = localStorage.getItem('booking_data');
+                    
+                    if (savedSettings) this.settings = JSON.parse(savedSettings);
+                    if (savedBookings) this.bookings = JSON.parse(savedBookings);
+
+                    // 2. Setup Dates
+                    this.generateDates();
+                    this.selectedDate = this.availableDates[0].value;
+
+                    // 3. Initialize Bootstrap Modals
+                    this.bsBookingModal = new bootstrap.Modal(this.$refs.bookingModalElement);
+                    this.bsAdminModal = new bootstrap.Modal(this.$refs.adminModalElement);
+
+                    // 4. Watch for admin modal trigger
+                    this.$watch('showAdminModal', (value) => {
+                        if(value) this.bsAdminModal.show();
+                        else this.bsAdminModal.hide();
+                    });
+                    
+                    // Allow closing admin modal to reset state
+                    this.$refs.adminModalElement.addEventListener('hidden.bs.modal', () => {
+                         this.showAdminModal = false;
+                    });
+                },
+
+                // Logic: Generate next X days
+                generateDates() {
+                    this.availableDates = [];
+                    const today = new Date();
+                    const daysMap = ['א','ב','ג','ד','ה','ו','ש'];
+                    
+                    for (let i = 0; i < this.settings.bookingWindowDays; i++) {
+                        let d = new Date(today);
+                        d.setDate(today.getDate() + i);
+                        
+                        // Skip weekends if needed (optional logic, currently showing all)
+                        let isoDate = d.toISOString().split('T')[0];
+                        let dayName = 'יום ' + daysMap[d.getDay()];
+                        
+                        this.availableDates.push({
+                            value: isoDate,
+                            dayName: i === 0 ? 'היום' : (i === 1 ? 'מחר' : dayName),
+                            formatted: d.getDate() + '/' + (d.getMonth() + 1)
+                        });
+                    }
+                },
+
+                // Logic: Check booking status
+                isBooked(computerId) {
+                    return this.bookings.some(b => b.date === this.selectedDate && b.computerId === computerId);
+                },
+
+                getBookingDetails(computerId) {
+                    return this.bookings.find(b => b.date === this.selectedDate && b.computerId === computerId) || {};
+                },
+
+                getAvailabilityText() {
+                    const bookedCount = this.bookings.filter(b => b.date === this.selectedDate).length;
+                    const total = this.settings.totalComputers;
+                    return (total - bookedCount) + ' פנויים מתוך ' + total;
+                },
+
+                // Actions
+                openBookingModal(computerId) {
+                    if (this.isBooked(computerId)) return; // Can't click taken
+                    this.currentComputerId = computerId;
+                    this.bookingForm = { name: '', phone: '' };
+                    this.bsBookingModal.show();
+                },
+
+                confirmBooking() {
+                    // Save to array
+                    this.bookings.push({
+                        date: this.selectedDate,
+                        computerId: this.currentComputerId,
+                        name: this.bookingForm.name,
+                        phone: this.bookingForm.phone
+                    });
+                    
+                    this.persistData();
+                    this.bsBookingModal.hide();
+                    alert('ההזמנה נקלטה בהצלחה!');
+                },
+
+                cancelBooking(computerId) {
+                    if(!confirm('האם אתה בטוח שברצונך לבטל את ההזמנה?')) return;
+                    
+                    this.bookings = this.bookings.filter(b => 
+                        !(b.date === this.selectedDate && b.computerId === computerId)
+                    );
+                    this.persistData();
+                },
+
+                // Storage
+                persistData() {
+                    localStorage.setItem('booking_data', JSON.stringify(this.bookings));
+                    localStorage.setItem('booking_settings', JSON.stringify(this.settings));
+                },
+
+                // Helper
+                formatDate(isoDate) {
+                    if (!isoDate) return '';
+                    const parts = isoDate.split('-');
+                    return parts[2] + '/' + parts[1] + '/' + parts[0];
+                },
+
+                // Admin Logic
+                checkAdmin() {
+                    if (this.adminPassword === 'admin') {
+                        this.isAdminAuthenticated = true;
+                        // Clone settings to temp for editing
+                        this.tempSettings = JSON.parse(JSON.stringify(this.settings));
+                    } else {
+                        alert('סיסמה שגויה');
+                    }
+                },
+
+                saveSettings() {
+                    this.settings = JSON.parse(JSON.stringify(this.tempSettings));
+                    this.persistData();
+                    this.generateDates(); // Regenerate dates if window changed
+                    this.showAdminModal = false;
+                    this.bsAdminModal.hide();
+                    alert('הגדרות נשמרו!');
+                },
+
+                resetAllData() {
+                    if(confirm('פעולה זו תמחק את כל ההזמנות. האם להמשיך?')) {
+                        this.bookings = [];
+                        this.persistData();
+                        alert('הנתונים אופסו.');
+                    }
+                }
+            }))
+        });
+    </script>
+</body>
+</html>
