@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת הזמנת מחשבים - MojoAuth Style</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-body: #f8f9fa;
+            --text-main: #212529;
+            --card-bg: #ffffff;
+            --navbar-bg: #ffffff;
+            --border-color: #dee2e6;
+            --shadow: 0 .125rem .25rem rgba(0,0,0,.075);
+            --modal-bg: #ffffff;
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #121212;
+            --text-main: #e0e0e0;
+            --card-bg: #1e1e1e;
+            --navbar-bg: #1e1e1e;
+            --border-color: #333;
+            --shadow: 0 .125rem .25rem rgba(255,255,255,.05);
+            --modal-bg: #2d2d2d;
+        }
+
+        body { background-color: var(--bg-body); color: var(--text-main); transition: background-color 0.3s, color 0.3s; }
+        
+        .navbar { background-color: var(--navbar-bg) !important; border-bottom: 1px solid var(--border-color); }
+        .card { background-color: var(--card-bg); border-color: var(--border-color); color: var(--text-main); }
+        .modal-content { background-color: var(--modal-bg); color: var(--text-main); }
+        .modal-header, .modal-footer { border-color: var(--border-color); }
+        .form-control { background-color: var(--bg-body); color: var(--text-main); border-color: var(--border-color); }
+        .form-control:focus { background-color: var(--bg-body); color: var(--text-main); }
+
+        .computer-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            border-radius: 12px;
+        }
+        .computer-card:hover { transform: translateY(-3px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        
+        .status-free { border-top: 5px solid #198754; }
+        .status-taken { border-top: 5px solid #dc3545; opacity: 0.95; }
+        [data-theme="dark"] .status-taken { background-color: #2c1517; }
+        [data-theme="free"] .status-taken { background-color: #fff5f5; }
+
+        .date-scroller {
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 10px;
+            -webkit-overflow-scrolling: touch; 
+        }
+        .date-btn { display: inline-block; width: 100px; margin-left: 5px; }
+        .date-btn.active { background-color: #0d6efd; color: white; border-color: #0d6efd; }
+        
+        /* MojoAuth Style Input */
+        .otp-input {
+            letter-spacing: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            font-size: 1.5rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div x-data="bookingApp()" x-init="initApp()" :class="{ 'dark-mode': darkMode }">
+
+        <nav class="navbar navbar-expand-lg shadow-sm rounded mb-4 px-3">
+            <a class="navbar-brand fw-bold" href="#" :class="darkMode ? 'text-light' : 'text-dark'">
+                <i class="fas fa-laptop-code text-primary"></i> WorkStation Booker
+            </a>
+            
+            <div class="ms-auto d-flex gap-2">
+                <button @click="toggleDarkMode()" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas" :class="darkMode ? 'fa-sun' : 'fa-moon'"></i>
+                </button>
+                <button @click="showAdminModal = true" class="btn btn-outline-secondary btn-sm" :class="adminModeActive ? 'btn-warning text-dark' : ''">
+                    <i class="fas fa-cog"></i> 
+                    <span x-show="adminModeActive">מצב מנהל פעיל</span>
+                    <span x-show="!adminModeActive">ניהול</span>
+                </button>
+            </div>
+        </nav>
+
+        <div class="container py-2">
+            <div class="mb-4">
+                <h5 class="mb-3">בחר תאריך להזמנה:</h5>
+                <div class="date-scroller">
+                    <template x-for="dateObj in availableDates" :key="dateObj.value">
+                        <button 
+                            class="btn btn-outline-primary date-btn" 
+                            :class="{ 'active': selectedDate === dateObj.value }"
+                            @click="selectedDate = dateObj.value">
+                            <div class="fw-bold" x-text="dateObj.dayName"></div>
+                            <div class="small" x-text="dateObj.formatted"></div>
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <div class="alert alert-info d-flex justify-content-between align-items-center">
+                <span>
+                    <i class="fas fa-calendar-day"></i> לתאריך: <strong x-text="formatDate(selectedDate)"></strong>
+                </span>
+                <span class="badge bg-primary" x-text="getAvailabilityText()"></span>
+            </div>
+
+            <div class="row g-3">
+                <template x-for="i in settings.totalComputers" :key="i">
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="card computer-card h-100 shadow-sm"
+                             :class="isBooked(i) ? 'status-taken' : 'status-free'"
+                             @click="handleCardClick(i)">
+                             
+                            <div class="card-body text-center">
+                                <h5 class="card-title mb-3">מחשב <span x-text="i"></span></h5>
+                                
+                                <template x-if="isBooked(i)">
+                                    <div>
+                                        <div class="text-danger mb-2"><i class="fas fa-lock"></i> תפוס</div>
+                                        <div class="small text-muted" x-text="getBookingDetails(i).name"></div>
+                                        
+                                        <template x-if="adminModeActive">
+                                            <button @click.stop="adminRemoveBooking(i)" class="btn btn-sm btn-danger mt-2 w-100">מחק (מנהל)</button>
+                                        </template>
+
+                                        <template x-if="!adminModeActive">
+                                            <button @click.stop="startCancellation(i)" class="btn btn-sm btn-link text-danger mt-2" style="font-size:0.8rem">בטל הזמנה</button>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                <template x-if="!isBooked(i)">
+                                    <div>
+                                        <div class="text-success mb-2"><i class="fas fa-check-circle"></i> פנוי</div>
+                                        <button class="btn btn-sm btn-outline-success w-100">שריין עכשיו</button>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div class="modal fade" id="bookingModal" tabindex="-1" aria-hidden="true" x-ref="bookingModalElement">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">שריין את מחשב מס' <span x-text="currentComputerId"></span></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        
+                        <div x-show="bookingStep === 1" x-transition:enter.duration.500ms>
+                            <form @submit.prevent="moveToOtp()">
+                                <div class="mb-3">
+                                    <label class="form-label">שם מלא</label>
+                                    <input type="text" class="form-control" x-model="bookingForm.name" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">דואר אלקטרוני</label>
+                                    <input type="email" class="form-control" x-model="bookingForm.email" required placeholder="name@example.com">
+                                    <div class="form-text">קוד אימות ישלח למייל זה. (מקסימום 2 מחשבים בשבוע)</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">מספר טלפון</label>
+                                    <input type="tel" class="form-control" x-model="bookingForm.phone" required>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">
+                                        <span x-show="!adminModeActive">שלח קוד אימות</span>
+                                        <span x-show="adminModeActive">שריין מיד (מנהל)</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div x-show="bookingStep === 2" x-transition:enter.duration.500ms>
+                            <div class="text-center mb-4">
+                                <i class="fas fa-shield-alt fa-3x text-success mb-3"></i>
+                                <h5>אימות זהות</h5>
+                                <p class="text-muted small">קוד אימות נשלח ל-<span class="fw-bold" x-text="bookingForm.email"></span></p>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label text-center w-100">הזן את קוד האימות (4 ספרות)</label>
+                                <input type="text" class="form-control otp-input" 
+                                       x-model="userEnteredOtp" placeholder="____" maxlength="4" autofocus>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button @click="verifyBookingOtp()" class="btn btn-success btn-lg">אמת והשלם הזמנה</button>
+                                <button @click="bookingStep = 1" class="btn btn-link text-secondary text-decoration-none small">תיקון מייל</button>
+                            </div>
+                            
+                            <div class="alert alert-secondary mt-3 py-1 text-center small">
+                                <i class="fas fa-info-circle"></i> סימולציה: הקוד הוא <strong x-text="serverOtpCode"></strong>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="cancelModal" tabindex="-1" x-ref="cancelModalElement">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">ביטול הזמנה (מחשב <span x-text="currentComputerId"></span>)</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        
+                        <div x-show="cancelStep === 1">
+                            <p>כדי להסיר את עצמך, הזן את המייל שאיתו נרשמת.</p>
+                            <div class="mb-3">
+                                <label class="form-label">דואר אלקטרוני</label>
+                                <input type="email" class="form-control" x-model="cancelEmail" placeholder="name@example.com">
+                            </div>
+                            <div class="d-grid">
+                                <button @click="sendCancelOtp()" class="btn btn-danger">שלח קוד מחיקה</button>
+                            </div>
+                        </div>
+
+                        <div x-show="cancelStep === 2">
+                            <div class="text-center mb-3">
+                                <p>קוד אימות נשלח למייל שלך.</p>
+                                <small>קוד סימולציה: <span x-text="serverOtpCode"></span></small>
+                            </div>
+                            <div class="mb-3">
+                                <input type="text" class="form-control otp-input" x-model="userEnteredOtp" placeholder="____" maxlength="4">
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button @click="verifyCancelOtp()" class="btn btn-danger">אמת ומחק הזמנה</button>
+                                <button @click="cancelStep = 1" class="btn btn-link">חזור</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="adminModal" tabindex="-1" x-ref="adminModalElement">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title text-dark">הגדרות ניהול</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" @click="showAdminModal = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div x-show="!isAdminAuthenticated">
+                            <div class="mb-3">
+                                <label class="text-dark">סיסמת ניהול (ברירת מחדל: admin)</label>
+                                <input type="password" class="form-control" x-model="adminPassword">
+                            </div>
+                            <button @click="checkAdmin()" class="btn btn-primary w-100">כנס</button>
+                        </div>
+
+                        <div x-show="isAdminAuthenticated">
+                            
+                            <div class="form-check form-switch mb-4 p-3 border rounded bg-light-subtle">
+                                <input class="form-check-input" type="checkbox" id="adminToggle" x-model="adminModeActive" style="float: right;">
+<br/>
+                                <label class="form-check-label fw-bold" for="adminToggle">הפעל "מצב מנהל"</label>
+                                <div class="small text-muted">מאפשר הוספה והסרה ללא אימות מייל</div>
+                            </div>
+
+                            <hr>
+                            <h6 class="text-dark">הגדרות כלליות</h6>
+
+                            <div class="mb-3">
+                                <label class="form-label">כמות מחשבים בחדר</label>
+                                <input type="number" class="form-control" x-model.number="tempSettings.totalComputers">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">מקסימום ימי הרשמה בשבוע (למשתמש)</label>
+                                <input type="number" class="form-control" x-model.number="tempSettings.maxBookingsPerWeek">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">טווח ימים להזמנה קדימה</label>
+                                <input type="number" class="form-control" x-model.number="tempSettings.bookingWindowDays">
+                            </div>
+                            
+                            <hr>
+                            <button @click="saveSettings()" class="btn btn-primary w-100 mb-2">שמור הגדרות</button>
+                            <button @click="resetAllData()" class="btn btn-danger w-100">איפוס מערכת (מחיקת הכל)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('bookingApp', () => ({
+                // Data Model
+                settings: {
+                    totalComputers: 10,
+                    bookingWindowDays: 14,
+                    maxBookingsPerWeek: 2
+                },
+                tempSettings: {}, 
+                bookings: [], 
+                
+                // UI State
+                darkMode: false,
+                selectedDate: '',
+                availableDates: [],
+                currentComputerId: null,
+                
+                // Booking Process
+                bookingForm: { name: '', phone: '', email: '' },
+                bookingStep: 1,
+                
+                // Cancellation Process
+                cancelEmail: '',
+                cancelStep: 1,
+
+                // OTP / MojoAuth Logic
+                serverOtpCode: null,
+                userEnteredOtp: '',
+
+                // Admin State
+                showAdminModal: false,
+                adminPassword: '',
+                isAdminAuthenticated: false,
+                adminModeActive: false,
+                
+                // Bootstrap Modals
+                bsBookingModal: null,
+                bsCancelModal: null,
+                bsAdminModal: null,
+
+                initApp() {
+                    // LocalStorage Loading
+                    const savedSettings = localStorage.getItem('booking_settings_v2');
+                    const savedBookings = localStorage.getItem('booking_data_v2');
+                    const savedTheme = localStorage.getItem('theme_preference');
+                    
+                    if (savedSettings) this.settings = JSON.parse(savedSettings);
+                    if (savedBookings) this.bookings = JSON.parse(savedBookings);
+                    
+                    if (savedTheme === 'dark') {
+                        this.darkMode = true;
+                        document.documentElement.setAttribute('data-theme', 'dark');
+                    }
+
+                    this.generateDates();
+                    this.selectedDate = this.availableDates[0].value;
+
+                    // Init Modals
+                    this.bsBookingModal = new bootstrap.Modal(this.$refs.bookingModalElement);
+                    this.bsCancelModal = new bootstrap.Modal(this.$refs.cancelModalElement);
+                    this.bsAdminModal = new bootstrap.Modal(this.$refs.adminModalElement);
+
+                    // Watch Admin Modal
+                    this.$watch('showAdminModal', (value) => {
+                        if(value) this.bsAdminModal.show();
+                        else this.bsAdminModal.hide();
+                    });
+                    
+                    this.$refs.adminModalElement.addEventListener('hidden.bs.modal', () => {
+                         this.showAdminModal = false;
+                    });
+                },
+
+                toggleDarkMode() {
+                    this.darkMode = !this.darkMode;
+                    if(this.darkMode) document.documentElement.setAttribute('data-theme', 'dark');
+                    else document.documentElement.removeAttribute('data-theme');
+                    localStorage.setItem('theme_preference', this.darkMode ? 'dark' : 'light');
+                },
+
+                generateDates() {
+                    this.availableDates = [];
+                    const today = new Date();
+                    const daysMap = ['א','ב','ג','ד','ה','ו','ש'];
+                    
+                    for (let i = 0; i < this.settings.bookingWindowDays; i++) {
+                        let d = new Date(today);
+                        d.setDate(today.getDate() + i);
+                        
+                        let isoDate = d.toISOString().split('T')[0];
+                        let dayName = 'יום ' + daysMap[d.getDay()];
+                        
+                        this.availableDates.push({
+                            value: isoDate,
+                            dayName: i === 0 ? 'היום' : (i === 1 ? 'מחר' : dayName),
+                            formatted: d.getDate() + '/' + (d.getMonth() + 1)
+                        });
+                    }
+                },
+
+                // --- Core Logic ---
+
+                handleCardClick(computerId) {
+                    // Refresh data just in case
+                    this.refreshFromStorage();
+                    const booked = this.isBooked(computerId);
+                    
+                    if (!booked) {
+                        // Start Booking Flow
+                        this.currentComputerId = computerId;
+                        this.bookingForm = { name: '', phone: '', email: '' };
+                        this.bookingStep = 1;
+                        this.userEnteredOtp = '';
+                        this.bsBookingModal.show();
+                    } 
+                },
+
+                refreshFromStorage() {
+                    const savedBookings = localStorage.getItem('booking_data_v2');
+                    if (savedBookings) this.bookings = JSON.parse(savedBookings);
+                },
+
+                moveToOtp() {
+                    // 1. Check if Admin Mode -> Skip OTP
+                    if (this.adminModeActive) {
+                        this.finalizeBooking();
+                        return;
+                    }
+
+                    // 2. Check Weekly Limit (Strict)
+                    if (!this.checkWeeklyLimit(this.bookingForm.email)) {
+                        alert(`שגיאה: הגעת למכסה של ${this.settings.maxBookingsPerWeek} מחשבים בשבוע זה.`);
+                        return;
+                    }
+
+                    // 3. Simulate MojoAuth Sending Email OTP
+                    this.serverOtpCode = Math.floor(1000 + Math.random() * 9000).toString();
+                    console.log("MOJOAUTH SIMULATION: SENT TO " + this.bookingForm.email + ": Code is " + this.serverOtpCode);
+                    
+                    // Move to Step 2 (The "Square" becomes OTP input)
+                    this.bookingStep = 2;
+                    this.userEnteredOtp = '';
+                },
+
+                verifyBookingOtp() {
+                    if (this.userEnteredOtp === this.serverOtpCode) {
+                        // --- CRITICAL STEP: Race Condition Handling ---
+                        // We must check availability AGAIN right now.
+                        this.refreshFromStorage(); // Sync with "Server" (LocalStorage)
+
+                        if (this.isBooked(this.currentComputerId)) {
+                            // !!! The computer was taken while user was typing code !!!
+                            const alternativeId = this.findFirstAvailableComputer();
+
+                            if (alternativeId) {
+                                if(confirm(`שים לב: בזמן שהמתנת לקוד, מחשב ${this.currentComputerId} נתפס על ידי משתמש אחר.\n\nמחשב ${alternativeId} פנוי. האם להעביר את ההרשמה אליו?`)) {
+                                    this.currentComputerId = alternativeId;
+                                    this.finalizeBooking();
+                                } else {
+                                    // User refused alternative
+                                    this.bsBookingModal.hide();
+                                }
+                            } else {
+                                alert('שגיאה: בזמן שהמתנת לקוד המחשב נתפס, ולצערי לא נותרו מחשבים פנויים ליום זה.');
+                                this.bsBookingModal.hide();
+                            }
+                        } else {
+                            // All good, verify limit one last time and book
+                            if (!this.checkWeeklyLimit(this.bookingForm.email)) {
+                                alert(`שגיאה: הגעת למכסה השבועית שלך.`);
+                                return;
+                            }
+                            this.finalizeBooking();
+                        }
+                    } else {
+                        alert('קוד אימות שגוי.');
+                    }
+                },
+
+                findFirstAvailableComputer() {
+                    for (let i = 1; i <= this.settings.totalComputers; i++) {
+                        if (!this.isBooked(i)) return i;
+                    }
+                    return null;
+                },
+
+                finalizeBooking() {
+                    this.bookings.push({
+                        date: this.selectedDate,
+                        computerId: this.currentComputerId,
+                        name: this.bookingForm.name,
+                        phone: this.bookingForm.phone,
+                        email: this.bookingForm.email
+                    });
+                    this.persistData();
+                    this.bsBookingModal.hide();
+                    alert('ההזמנה נקלטה בהצלחה!');
+                },
+
+                // --- Cancellation Flow ---
+
+                startCancellation(computerId) {
+                    this.currentComputerId = computerId;
+                    this.cancelEmail = '';
+                    this.cancelStep = 1;
+                    this.userEnteredOtp = '';
+                    this.bsCancelModal.show();
+                },
+
+                sendCancelOtp() {
+                    this.refreshFromStorage();
+                    const booking = this.getBookingDetails(this.currentComputerId);
+                    if (booking.email !== this.cancelEmail) {
+                        alert('המייל שהזנת אינו תואם למייל של ההזמנה.');
+                        return;
+                    }
+
+                    this.serverOtpCode = Math.floor(1000 + Math.random() * 9000).toString();
+                    this.cancelStep = 2;
+                },
+
+                verifyCancelOtp() {
+                    if (this.userEnteredOtp === this.serverOtpCode) {
+                        this.performCancellation(this.currentComputerId);
+                        this.bsCancelModal.hide();
+                        alert('ההזמנה בוטלה.');
+                    } else {
+                        alert('קוד שגוי.');
+                    }
+                },
+
+                adminRemoveBooking(computerId) {
+                    if(confirm('מנהל: האם למחוק הזמנה זו ללא אימות?')) {
+                        this.performCancellation(computerId);
+                    }
+                },
+
+                performCancellation(computerId) {
+                    this.bookings = this.bookings.filter(b => 
+                        !(b.date === this.selectedDate && b.computerId === computerId)
+                    );
+                    this.persistData();
+                },
+
+                // --- Helper Logic ---
+
+                isBooked(computerId) {
+                    return this.bookings.some(b => b.date === this.selectedDate && b.computerId === computerId);
+                },
+
+                getBookingDetails(computerId) {
+                    return this.bookings.find(b => b.date === this.selectedDate && b.computerId === computerId) || {};
+                },
+
+                getAvailabilityText() {
+                    const bookedCount = this.bookings.filter(b => b.date === this.selectedDate).length;
+                    const total = this.settings.totalComputers;
+                    return (total - bookedCount) + ' פנויים מתוך ' + total;
+                },
+
+                checkWeeklyLimit(email) {
+                    const targetDate = new Date(this.selectedDate);
+                    
+                    // Find all bookings for this email in the same week
+                    const bookingsThisWeek = this.bookings.filter(b => {
+                        if (b.email !== email) return false;
+                        const bDate = new Date(b.date);
+                        return this.isSameWeek(targetDate, bDate);
+                    });
+
+                    // Must be strictly LESS than max to allow one more
+                    return bookingsThisWeek.length < this.settings.maxBookingsPerWeek;
+                },
+
+                isSameWeek(d1, d2) {
+                    const onejan = new Date(d1.getFullYear(), 0, 1);
+                    const week1 = Math.ceil((((d1 - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+                    
+                    const onejan2 = new Date(d2.getFullYear(), 0, 1);
+                    const week2 = Math.ceil((((d2 - onejan2) / 86400000) + onejan2.getDay() + 1) / 7);
+                    
+                    return d1.getFullYear() === d2.getFullYear() && week1 === week2;
+                },
+
+                formatDate(isoDate) {
+                    if (!isoDate) return '';
+                    const parts = isoDate.split('-');
+                    return parts[2] + '/' + parts[1] + '/' + parts[0];
+                },
+
+                persistData() {
+                    localStorage.setItem('booking_data_v2', JSON.stringify(this.bookings));
+                    localStorage.setItem('booking_settings_v2', JSON.stringify(this.settings));
+                },
+
+                // --- Admin Logic ---
+                checkAdmin() {
+                    if (this.adminPassword === 'admin') {
+                        this.isAdminAuthenticated = true;
+                        this.tempSettings = JSON.parse(JSON.stringify(this.settings));
+                    } else {
+                        alert('סיסמה שגויה');
+                    }
+                },
+
+                saveSettings() {
+                    this.settings = JSON.parse(JSON.stringify(this.tempSettings));
+                    this.persistData();
+                    this.generateDates();
+                    this.showAdminModal = false;
+                    this.bsAdminModal.hide();
+                    alert('הגדרות נשמרו!');
+                },
+
+                resetAllData() {
+                    if(confirm('פעולה זו תמחק את כל ההזמנות וההגדרות. האם להמשיך?')) {
+                        this.bookings = [];
+                        localStorage.removeItem('booking_data_v2');
+                        this.persistData();
+                        alert('הנתונים אופסו.');
+                    }
+                }
+            }))
+        });
+    </script>
+</body>
+</html>
