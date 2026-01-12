@@ -296,6 +296,7 @@
   const firebaseConfig = {
     apiKey: "AIzaSyCKCHyKJTkXYtCS2p3J027jJfmI04npk7I",
     authDomain: "en-shemer-booking.firebaseapp.com",
+    databaseURL: "https://en-shemer-booking-default-rtdb.firebaseio.com",
     projectId: "en-shemer-booking",
     storageBucket: "en-shemer-booking.firebasestorage.app",
     messagingSenderId: "1023003700732",
@@ -374,44 +375,52 @@
                 },
 
                 listenToFirebase() {
-                    // האזנה להגדרות
-                    db.ref('settings').on('value', (snapshot) => {
-                        const val = snapshot.val();
-                        if (val) {
-                            this.settings = val;
-                            this.generateDates(); // Regenerate in case window changed
-                        }
+    // 1. האזנה להגדרות (כמות מחשבים וכו')
+    db.ref('settings').on('value', (snapshot) => {
+        const val = snapshot.val();
+        if (val) {
+            this.settings = val;
+            this.generateDates(); 
+        }
+    });
+
+    // 2. פונקציית הניקוי והאזנה להזמנות
+    db.ref('bookings').on('value', (snapshot) => {
+        const data = snapshot.val() || {};
+        let allBookings = [];
+        
+        // יצירת תאריך של היום בפורמט YYYY-MM-DD (לפי שעון מקומי)
+        const now = new Date();
+        const offset = now.getTimezoneOffset();
+        const localToday = new Date(now.getTime() - (offset * 60 * 1000));
+        const todayStr = localToday.toISOString().split('T')[0];
+
+        console.log("Checking for old bookings to clean... Today is:", todayStr);
+
+        Object.keys(data).forEach(dateKey => {
+            // אם התאריך במערכת קטן מהתאריך של היום - מחק אותו
+            if (dateKey < todayStr) {
+                console.warn("Cleanup: Removing expired date:", dateKey);
+                db.ref('bookings/' + dateKey).remove()
+                    .then(() => console.log("Successfully deleted:", dateKey))
+                    .catch(err => console.error("Cleanup error:", err));
+            } else {
+                // אם התאריך תקין, הוסף את ההזמנות שלו למערך התצוגה
+                const computersInDate = data[dateKey];
+                Object.keys(computersInDate).forEach(compId => {
+                    allBookings.push({
+                        date: dateKey,
+                        computerId: parseInt(compId),
+                        ...computersInDate[compId]
                     });
+                });
+            }
+        });
 
-                    // האזנה להזמנות + מחיקת ישנים
-                    db.ref('bookings').on('value', (snapshot) => {
-                        const data = snapshot.val() || {};
-                        let allBookings = [];
-                        const todayStr = new Date().toISOString().split('T')[0];
-
-                        // מעבר על כל התאריכים בבסיס הנתונים
-                        Object.keys(data).forEach(dateKey => {
-                            // ניקוי אוטומטי: אם התאריך עבר, נמחק אותו מהענן
-                            if (dateKey < todayStr) {
-                                console.log("Deleting old date:", dateKey);
-                                db.ref('bookings/' + dateKey).remove();
-                            } else {
-                                // המרה למבנה המערך שלנו
-                                const computersInDate = data[dateKey];
-                                Object.keys(computersInDate).forEach(compId => {
-                                    allBookings.push({
-                                        date: dateKey,
-                                        computerId: parseInt(compId),
-                                        ...computersInDate[compId]
-                                    });
-                                });
-                            }
-                        });
-
-                        this.bookings = allBookings;
-                        this.isLoading = false;
-                    });
-                },
+        this.bookings = allBookings;
+        this.isLoading = false;
+    });
+},
 
                 // --- MojoAuth Logic ---
 
