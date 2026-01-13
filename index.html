@@ -33,9 +33,9 @@
                 <a class="navbar-brand fw-bold" href="#"><i class="fas fa-laptop-code text-primary"></i> עין שמר</a>
                 <div class="d-flex gap-2 align-items-center">
                     <button @click="showUserBookingsModal = true" class="btn btn-sm btn-outline-primary"><i class="fas fa-calendar-check"></i> הזמנות שלי</button>
-                    <button @click="toggleDarkMode()" class="btn btn-sm btn-outline-secondary"><i class="fas" :class="darkMode ? 'fa-sun' : 'fa-moon'"></i></button>
+                    <!--<button @click="toggleDarkMode()" class="btn btn-sm btn-outline-secondary"><i class="fas" :class="darkMode ? 'fa-sun' : 'fa-moon'"></i></button>-->
                     <button @click="showAdminModal = true" class="btn btn-sm" :class="adminModeActive ? 'btn-warning fw-bold' : 'btn-outline-secondary'">
-                        <i class="fas fa-user-shield"></i> <span class="d-none d-md-inline" x-text="adminModeActive ? 'מחובר' : 'ניהול'"></span>
+                        <i class="fa-solid fa-gear"></i> <span class="d-none d-md-inline" x-text="adminModeActive ? 'מחובר' : 'ניהול'"></span>
                     </button>
                 </div>
             </div>
@@ -273,16 +273,39 @@
                     return true;
                 },
 
-                async moveToOtp() {
-                    if (!this.checkLimits(this.bookingForm.email)) return;
-                    if (this.adminModeActive) { this.finalizeBooking(); return; }
-                    this.isProcessing = true;
-                    try {
-                        this.bookingStep = 2;
-                        const res = await this.mojoauth.signInWithEmailOTP(this.bookingForm.email);
-                        if (res.authenticated) this.finalizeBooking();
-                    } catch (e) { this.bookingStep = 1; Swal.fire('שגיאה', 'קוד לא נשלח', 'error'); } finally { this.isProcessing = false; }
-                },
+async moveToOtp() {
+    if (!this.checkLimits(this.bookingForm.email)) return;
+    if (this.adminModeActive) { this.finalizeBooking(); return; }
+    
+    this.isProcessing = true;
+    
+    try {
+        // 1. ניקוי הדיב לפני טעינה מחדש
+        document.getElementById("mojoauth-passwordless-form").innerHTML = "";
+        
+        // 2. אתחול מחדש של האובייקט כדי לרענן את הסטייט שלו
+        this.mojoauth = new MojoAuth(MOJO_AUTH_KEY, { 
+            container: { id: "mojoauth-passwordless-form" }, 
+            source: [{ type: "email", feature: "otp" }], 
+            language: "he" 
+        });
+
+        this.bookingStep = 2;
+
+        // 3. הרצה של ה-OTP
+        const res = await this.mojoauth.signInWithEmailOTP(this.bookingForm.email);
+        
+        if (res.authenticated) {
+            this.finalizeBooking();
+        }
+    } catch (e) { 
+        console.error(e);
+        this.bookingStep = 1; 
+        Swal.fire('שגיאה', 'לא ניתן היה לשלוח קוד אימות או שהתהליך הופסק', 'error'); 
+    } finally { 
+        this.isProcessing = false; 
+    }
+},
 
                 finalizeBooking() {
                     const path = `bookings/${this.selectedDate}/${this.currentComputerId}`;
