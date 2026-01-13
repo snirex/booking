@@ -337,6 +337,7 @@
                 checkAdmin() {
                     if (this.adminPassword === '1234') { // שנה סיסמה כאן
                         this.isAdminAuthenticated = true;
+                        this.adminModeActive = true;
                         this.tempSettings = {...this.settings};
                     }
                 },
@@ -351,4 +352,5 @@
     </script>
 </body>
 </html>
+
 
