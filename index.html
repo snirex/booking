@@ -1,82 +1,53 @@
+
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>עין שמר - מערכת הזמנת מחשבים</title>
-    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        :root {
-            --bg-body: #f8f9fa;
-            --text-main: #212529;
-            --card-bg: #ffffff;
-            --navbar-bg: #ffffff;
-            --border-color: #dee2e6;
-            --shadow: 0 .125rem .25rem rgba(0,0,0,.075);
-            --modal-bg: #ffffff;
-        }
-        [data-theme="dark"] {
-            --bg-body: #121212;
-            --text-main: #e0e0e0;
-            --card-bg: #1e1e1e;
-            --navbar-bg: #1e1e1e;
-            --border-color: #333;
-            --shadow: 0 .125rem .25rem rgba(255,255,255,.05);
-            --modal-bg: #2d2d2d;
-        }
-
-        body { background-color: var(--bg-body); color: var(--text-main); transition: background-color 0.3s, color 0.3s; }
+        :root { --bg-body: #f8f9fa; --text-main: #212529; --card-bg: #ffffff; --navbar-bg: #ffffff; --border-color: #dee2e6; --modal-bg: #ffffff; --input-bg: #ffffff; }
+        [data-theme="dark"] { --bg-body: #121212; --text-main: #e0e0e0; --card-bg: #1e1e1e; --navbar-bg: #1e1e1e; --border-color: #333; --modal-bg: #2d2d2d; --input-bg: #3d3d3d; }
+        body { background-color: var(--bg-body); color: var(--text-main); transition: 0.3s; font-family: system-ui, -apple-system, sans-serif; }
         .navbar { background-color: var(--navbar-bg) !important; border-bottom: 1px solid var(--border-color); }
         .card { background-color: var(--card-bg); border-color: var(--border-color); color: var(--text-main); }
         .modal-content { background-color: var(--modal-bg); color: var(--text-main); }
-        .computer-card { transition: transform 0.2s; cursor: pointer; border-radius: 12px; }
-        .computer-card:hover { transform: translateY(-3px); }
-        .status-free { border-top: 5px solid #198754; }
-        .status-taken { border-top: 5px solid #dc3545; opacity: 0.9; }
+        .form-control { background-color: var(--input-bg); color: var(--text-main); border-color: var(--border-color); }
+        .computer-card { transition: 0.2s; cursor: pointer; border-radius: 12px; }
+        .computer-card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .status-free { border-top: 6px solid #198754; }
+        .status-taken { border-top: 6px solid #dc3545; opacity: 0.8; }
         .date-scroller { overflow-x: auto; white-space: nowrap; padding-bottom: 10px; }
-        .date-btn { display: inline-block; width: 100px; margin-left: 5px; }
-        .date-btn.active { background-color: #0d6efd; color: white; }
-        
-        #mojoauth-passwordless-form { margin-top: 20px; }
+        .date-btn { display: inline-block; width: 100px; margin-left: 5px; border-radius: 10px; }
+        .date-btn.active { background-color: #0d6efd; color: white; border-color: #0d6efd; }
+        [x-cloak] { display: none !important; }
     </style>
 </head>
 <body>
-
     <div x-data="bookingApp()" x-init="initApp()">
-        
-        <nav class="navbar navbar-expand-lg shadow-sm mb-4 px-3">
-            <a class="navbar-brand fw-bold" href="#" :class="darkMode ? 'text-light' : 'text-dark'">
-                <i class="fas fa-laptop-code text-primary"></i> עין שמר - הזמנת מחשבים
-            </a>
-            <div class="ms-auto d-flex gap-2">
-                <button @click="toggleDarkMode()" class="btn btn-sm btn-outline-secondary">
-                    <i class="fas" :class="darkMode ? 'fa-sun' : 'fa-moon'"></i>
-                </button>
-                <button @click="showAdminModal = true" class="btn btn-sm" 
-                        :class="adminModeActive ? 'btn-warning text-dark fw-bold' : 'btn-outline-secondary'">
-                    <i class="fas fa-cog"></i> 
-                    <span x-text="adminModeActive ? 'מחובר כמנהל' : 'ניהול'"></span>
-                </button>
+        <nav class="navbar navbar-expand-lg shadow-sm mb-4 px-3 sticky-top">
+            <div class="container-fluid">
+                <a class="navbar-brand fw-bold" href="#"><i class="fas fa-laptop-code text-primary"></i> עין שמר</a>
+                <div class="d-flex gap-2 align-items-center">
+                    <button @click="showUserBookingsModal = true" class="btn btn-sm btn-outline-primary"><i class="fas fa-calendar-check"></i> הזמנות שלי</button>
+                    <button @click="toggleDarkMode()" class="btn btn-sm btn-outline-secondary"><i class="fas" :class="darkMode ? 'fa-sun' : 'fa-moon'"></i></button>
+                    <button @click="showAdminModal = true" class="btn btn-sm" :class="adminModeActive ? 'btn-warning fw-bold' : 'btn-outline-secondary'">
+                        <i class="fas fa-user-shield"></i> <span class="d-none d-md-inline" x-text="adminModeActive ? 'מחובר' : 'ניהול'"></span>
+                    </button>
+                </div>
             </div>
         </nav>
 
         <div class="container py-2">
-            <div x-show="isLoading" class="text-center py-5">
-                <div class="spinner-border text-primary"></div>
-                <p class="mt-2">מתחבר לענן של עין שמר...</p>
-            </div>
-
+            <div x-show="isLoading" class="text-center py-5"><div class="spinner-border text-primary"></div></div>
             <div x-show="!isLoading" x-cloak>
                 <div class="mb-4">
-                    <h5 class="mb-3">בחר תאריך:</h5>
                     <div class="date-scroller">
                         <template x-for="dateObj in availableDates" :key="dateObj.value">
-                            <button class="btn btn-outline-primary date-btn" 
-                                    :class="{ 'active': selectedDate === dateObj.value }"
-                                    @click="selectedDate = dateObj.value">
+                            <button class="btn btn-outline-primary date-btn" :class="{ 'active': selectedDate === dateObj.value }" @click="selectedDate = dateObj.value">
                                 <div class="fw-bold" x-text="dateObj.dayName"></div>
                                 <div class="small" x-text="dateObj.formatted"></div>
                             </button>
@@ -84,30 +55,24 @@
                     </div>
                 </div>
 
-                <div class="alert alert-info d-flex justify-content-between align-items-center">
-                    <div>
-                        <i class="fas fa-calendar-day"></i> תאריך: <strong x-text="formatDate(selectedDate)"></strong>
-                    </div>
-                    <span class="badge bg-primary" x-text="getAvailabilityText()"></span>
+                <div class="alert alert-info d-flex justify-content-between align-items-center py-2 shadow-sm">
+                    <span>תאריך: <strong x-text="formatDate(selectedDate)"></strong></span>
+                    <span class="badge bg-primary px-3 py-2" x-text="getAvailabilityText()"></span>
                 </div>
 
                 <div class="row g-3">
                     <template x-for="i in settings.totalComputers" :key="i">
                         <div class="col-6 col-md-4 col-lg-3">
-                            <div class="card computer-card h-100 shadow-sm"
-                                 :class="isBooked(i) ? 'status-taken' : 'status-free'"
-                                 @click="handleCardClick(i)">
+                            <div class="card computer-card h-100 shadow-sm" :class="isBooked(i) ? 'status-taken' : 'status-free'" @click="handleCardClick(i)">
                                 <div class="card-body text-center">
-                                    <h5 class="card-title">מחשב <span x-text="i"></span></h5>
-                                    
+                                    <h6 class="card-title text-muted mb-2">מחשב <span x-text="i"></span></h6>
                                     <template x-if="isBooked(i)">
                                         <div>
-                                            <div class="text-danger small"><i class="fas fa-lock"></i> תפוס: <span x-text="getBookingDetails(i).name"></span></div>
-                                            <button x-show="adminModeActive" @click.stop="adminRemoveBooking(i)" class="btn btn-sm btn-danger mt-2 w-100">מחק (מנהל)</button>
-                                            <button x-show="!adminModeActive" @click.stop="startCancellation(i)" class="btn btn-sm btn-link text-danger mt-1">ביטול</button>
+                                            <div class="text-danger fw-bold"><i class="fas fa-user-lock"></i> <span x-text="getBookingDetails(i).name"></span></div>
+                                            <button x-show="adminModeActive" @click.stop="adminRemoveBooking(selectedDate, i)" class="btn btn-sm btn-danger mt-2 w-100">מחק (אדמין)</button>
+                                            <button x-show="!adminModeActive" @click.stop="cancelViaEmail(selectedDate, i)" class="btn btn-sm btn-outline-secondary mt-2 w-100" style="font-size: 0.8rem;">ביטול הזמנה שלי</button>
                                         </div>
                                     </template>
-                                    
                                     <template x-if="!isBooked(i)">
                                         <div class="text-success"><i class="fas fa-check-circle"></i> פנוי</div>
                                     </template>
@@ -121,38 +86,28 @@
 
         <div class="modal fade" id="bookingModal" tabindex="-1" x-ref="bookingModalElement">
             <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
+                <div class="modal-content border-0">
                     <div class="modal-header">
-                        <h5 class="modal-title">הזמנת מחשב מס' <span x-text="currentComputerId"></span></h5>
+                        <h5 class="modal-title">הזמנה: מחשב <span x-text="currentComputerId"></span></h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <div x-show="bookingStep === 1">
                             <form @submit.prevent="moveToOtp()">
-                                <div class="mb-3">
-                                    <label class="form-label">שם מלא</label>
-                                    <input type="text" class="form-control" x-model="bookingForm.name" required>
+                                <div class="mb-2"><label class="form-label">שם מלא:</label><input type="text" class="form-control" x-model="bookingForm.name" @input="lookupUser()" required></div>
+                                <div class="mb-2"><label class="form-label">מייל:</label><input type="email" class="form-control" x-model="bookingForm.email" required></div>
+                                <div class="mb-3"><label class="form-label">טלפון:</label><input type="tel" class="form-control" x-model="bookingForm.phone" required></div>
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary w-100 fw-bold" :disabled="isProcessing">
+                                        <span x-text="adminModeActive ? 'שריין כעת (מנהל)' : 'שלח קוד אימות'"></span>
+                                    </button>
+                                    <button type="button" @click="resetBookingForm()" class="btn btn-outline-secondary">נקה פרטים</button>
                                 </div>
-                                <div class="mb-3">
-                                    <label class="form-label">דואר אלקטרוני</label>
-                                    <input type="email" class="form-control" x-model="bookingForm.email" required>
-                                    <div class="form-text small" x-show="!adminModeActive">הגבלה: עד <span x-text="settings.maxBookingsPerWeek"></span> הזמנות בשבוע.</div>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">טלפון</label>
-                                    <input type="tel" class="form-control" x-model="bookingForm.phone" required>
-                                </div>
-                                <button type="submit" class="btn btn-primary w-100" :disabled="isProcessing">
-                                    <span x-show="!adminModeActive">שלח קוד אימות</span>
-                                    <span x-show="adminModeActive">שריין כעת (מנהל - עוקף אימות)</span>
-                                </button>
                             </form>
                         </div>
-
                         <div x-show="bookingStep === 2">
-                            <p class="text-center">קוד אימות נשלח לכתובת המייל שלך.</p>
                             <div id="mojoauth-passwordless-form"></div>
-                            <button @click="bookingStep = 1" class="btn btn-link w-100 mt-2">חזור לעריכת פרטים</button>
+                            <button @click="bookingStep = 1" class="btn btn-link w-100 mt-2">חזור לעריכה</button>
                         </div>
                     </div>
                 </div>
@@ -160,43 +115,58 @@
         </div>
 
         <div class="modal fade" id="adminModal" tabindex="-1" x-ref="adminModalElement">
-            <div class="modal-dialog">
+            <div class="modal-dialog modal-xl">
                 <div class="modal-content">
-                    <div class="modal-header bg-light">
-                        <h5 class="modal-title"><i class="fas fa-user-shield"></i> ניהול מערכת</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
+                    <div class="modal-header"><h5>לוח ניהול</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body">
-                        
                         <div x-show="!adminModeActive">
-                            <p class="text-muted mb-3">נא להזין סיסמת ניהול לעריכת הגדרות ומחיקת הזמנות.</p>
-                            <input type="password" class="form-control mb-2" x-model="adminPassword" placeholder="סיסמה" @keyup.enter="checkAdmin()">
-                            <button @click="checkAdmin()" class="btn btn-primary w-100">כניסה למערכת</button>
+                            <input type="password" class="form-control mb-2" x-model="adminPassword" placeholder="סיסמת מנהל" @keyup.enter="checkAdmin()">
+                            <button @click="checkAdmin()" class="btn btn-primary w-100">התחבר</button>
                         </div>
-
                         <div x-show="adminModeActive">
-                            <div class="alert alert-success py-2"><i class="fas fa-check"></i> מצב מנהל פעיל</div>
-                            
-                            <h6 class="border-bottom pb-2 mb-3">הגדרות כלליות</h6>
+                            <ul class="nav nav-tabs mb-3">
+                                <li class="nav-item"><a class="nav-link" :class="adminTab === 'settings' ? 'active' : ''" @click="adminTab = 'settings'">הגדרות</a></li>
+                                <li class="nav-item"><a class="nav-link" :class="adminTab === 'table' ? 'active' : ''" @click="adminTab = 'table'">כל ההזמנות</a></li>
+                                <li class="nav-item"><a class="nav-link" :class="adminTab === 'users' ? 'active' : ''" @click="adminTab = 'users'">ניהול משתמשים (Autofill)</a></li>
+                            </ul>
 
-                            <div class="mb-2">
-                                <label class="form-label">כמות מחשבים כוללת:</label>
-                                <input type="number" class="form-control" x-model.number="tempSettings.totalComputers" min="1">
+                            <div x-show="adminTab === 'settings'">
+                                <div class="row g-3">
+                                    <div class="col-md-4"><label>מחשבים:</label><input type="number" class="form-control" x-model.number="tempSettings.totalComputers"></div>
+                                    <div class="col-md-4"><label>ימים קדימה:</label><input type="number" class="form-control" x-model.number="tempSettings.bookingWindowDays"></div>
+                                    <div class="col-md-4"><label>מקסימום לשבוע:</label><input type="number" class="form-control" x-model.number="tempSettings.maxBookingsPerWeek"></div>
+                                </div>
+                                <div class="mt-4 d-flex gap-2">
+                                    <button @click="saveSettings()" class="btn btn-success">שמור הגדרות</button>
+                                    <button @click="resetSystem()" class="btn btn-outline-danger">איפוס מערכת</button>
+                                </div>
                             </div>
 
-                            <div class="mb-2">
-                                <label class="form-label">כמה ימים לפתוח להזמנה:</label>
-                                <input type="number" class="form-control" x-model.number="tempSettings.bookingWindowDays" min="1">
+                            <div x-show="adminTab === 'table'" class="table-responsive">
+                                <table class="table table-sm table-striped mt-2">
+                                    <thead><tr><th>תאריך</th><th>מחשב</th><th>שם</th><th>טלפון</th><th>מייל</th><th>פעולה</th></tr></thead>
+                                    <tbody>
+                                        <template x-for="b in bookings" :key="b.date + b.computerId">
+                                            <tr>
+                                                <td x-text="formatDate(b.date)"></td><td x-text="b.computerId"></td><td x-text="b.name"></td><td x-text="b.phone"></td><td x-text="b.email" class="small"></td>
+                                                <td><button @click="adminRemoveBooking(b.date, b.computerId)" class="btn btn-sm text-danger"><i class="fas fa-trash"></i></button></td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
                             </div>
 
-                            <div class="mb-4">
-                                <label class="form-label">מקסימום הזמנות למשתמש בשבוע:</label>
-                                <input type="number" class="form-control" x-model.number="tempSettings.maxBookingsPerWeek" min="1">
-                            </div>
-
-                            <div class="d-grid gap-2">
-                                <button @click="saveSettings()" class="btn btn-success"><i class="fas fa-save"></i> שמור שינויים</button>
-                                <button @click="resetSettings()" class="btn btn-outline-danger btn-sm"><i class="fas fa-history"></i> איפוס לברירת מחדל</button>
+                            <div x-show="adminTab === 'users'" class="table-responsive">
+                                <div class="alert alert-secondary py-2 small">ניהול משתמשים שנשמרו בזיכרון ה-Autofill</div>
+                                <table class="table table-sm">
+                                    <thead><tr><th>שם</th><th>מייל</th><th>טלפון</th><th>פעולה</th></tr></thead>
+                                    <tbody>
+                                        <template x-for="(data, name) in users" :key="name">
+                                            <tr><td class="fw-bold" x-text="name"></td><td x-text="data.email"></td><td x-text="data.phone"></td>
+                                            <td><button @click="deleteUser(name)" class="btn btn-sm btn-outline-danger py-0">מחק</button></td></tr>
+                                        </template>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -204,6 +174,22 @@
             </div>
         </div>
 
+        <div class="modal fade" id="userBookingsModal" tabindex="-1" x-ref="userBookingsModalElement">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content border-0">
+                    <div class="modal-header bg-primary text-white"><h5>ההזמנות שלי</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-body">
+                        <div class="input-group mb-3"><input type="email" class="form-control" x-model="searchEmail" placeholder="הכנס מייל"><button class="btn btn-primary" @click="fetchMyBookings()">חפש</button></div>
+                        <template x-for="b in myBookings">
+                            <div class="border-bottom p-2 d-flex justify-content-between align-items-center">
+                                <span x-text="formatDate(b.date) + ' - מחשב ' + b.computerId"></span>
+                                <button class="btn btn-sm btn-outline-danger" @click="cancelViaEmail(b.date, b.computerId)">ביטול</button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
@@ -213,249 +199,139 @@
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 
     <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCKCHyKJTkXYtCS2p3J027jJfmI04npk7I",
-            authDomain: "en-shemer-booking.firebaseapp.com",
-            databaseURL: "https://en-shemer-booking-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "en-shemer-booking"
-        };
-        const MOJO_AUTH_KEY = "6383ede4-8f58-40f6-841a-df025cd261c3"; 
-
+        const firebaseConfig = { apiKey: "AIzaSyCKCHyKJTkXYtCS2p3J027jJfmI04npk7I", authDomain: "en-shemer-booking.firebaseapp.com", databaseURL: "https://en-shemer-booking-default-rtdb.europe-west1.firebasedatabase.app", projectId: "en-shemer-booking" };
+        const MOJO_AUTH_KEY = "6383ede4-8f58-40f6-841a-df025cd261c3";
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
         document.addEventListener('alpine:init', () => {
             Alpine.data('bookingApp', () => ({
-                settings: { 
-                    totalComputers: 10, 
-                    bookingWindowDays: 14, 
-                    maxBookingsPerWeek: 2 
-                },
-                tempSettings: {},
-                bookings: [],
-                isLoading: true,
-                isProcessing: false,
-                darkMode: false,
-                selectedDate: '',
-                availableDates: [],
-                currentComputerId: null,
-                bookingStep: 1,
-                bookingForm: { name: '', email: '', phone: '' },
-                
-                // Admin State
-                adminModeActive: false, // האם המשתמש במצב מנהל כרגע
-                adminPassword: '',
-                showAdminModal: false,
+                settings: { totalComputers: 10, bookingWindowDays: 14, maxBookingsPerWeek: 2 },
+                tempSettings: {}, bookings: [], users: {}, isLoading: true, isProcessing: false, darkMode: false,
+                selectedDate: '', availableDates: [], currentComputerId: null,
+                bookingStep: 1, bookingForm: { name: '', email: '', phone: '' },
+                adminModeActive: false, adminPassword: '', showAdminModal: false, adminTab: 'settings',
+                showUserBookingsModal: false, searchEmail: '', myBookings: [],
 
                 async initApp() {
-                    // Initialize MojoAuth
-                    this.mojoauth = new MojoAuth(MOJO_AUTH_KEY, {
-                        container: { id: "mojoauth-passwordless-form" },
-                        source: [{ type: "email", feature: "otp" }],
-                        language: "he"
-                    });
-
-                    this.generateDates();
-                    
-                    // Modals Initialization
+                    this.mojoauth = new MojoAuth(MOJO_AUTH_KEY, { container: { id: "mojoauth-passwordless-form" }, source: [{ type: "email", feature: "otp" }], language: "he" });
                     this.bsBookingModal = new bootstrap.Modal(this.$refs.bookingModalElement);
                     this.bsAdminModal = new bootstrap.Modal(this.$refs.adminModalElement);
+                    this.bsUserModal = new bootstrap.Modal(this.$refs.userBookingsModalElement);
+                    
+                    // איפוס שדות בסגירת חלונית
+                    this.$refs.bookingModalElement.addEventListener('hidden.bs.modal', () => { this.resetBookingForm(); });
 
-                    // Watchers
-                    this.$watch('showAdminModal', val => {
-                        if (val) {
-                            // אם כבר מחובר כמנהל, טען את ההגדרות העדכניות לעריכה
-                            if (this.adminModeActive) {
-                                this.tempSettings = {...this.settings};
-                            }
-                            this.bsAdminModal.show();
-                        } else {
-                            this.bsAdminModal.hide();
-                        }
-                    });
-
-                    // *** תיקון קריטי: סנכרון סגירת המודאל עם Alpine ***
-                    this.$refs.adminModalElement.addEventListener('hidden.bs.modal', () => {
-                        this.showAdminModal = false;
-                        this.adminPassword = ''; // ניקוי שדה סיסמה ליתר ביטחון
-                    });
+                    this.$watch('showUserBookingsModal', v => v ? this.bsUserModal.show() : this.bsUserModal.hide());
+                    this.$watch('showAdminModal', v => v ? this.bsAdminModal.show() : this.bsAdminModal.hide());
+                    this.$refs.adminModalElement.addEventListener('hidden.bs.modal', () => this.showAdminModal = false);
+                    this.$refs.userBookingsModalElement.addEventListener('hidden.bs.modal', () => this.showUserBookingsModal = false);
 
                     this.listenToFirebase();
                 },
 
                 listenToFirebase() {
-                    db.ref('settings').on('value', snap => {
-                        if (snap.val()) {
-                            this.settings = snap.val();
-                            this.generateDates();
-                        }
-                    });
-
+                    db.ref('settings').on('value', snap => { if (snap.val()) this.settings = snap.val(); this.generateDates(); });
+                    db.ref('users').on('value', snap => { this.users = snap.val() || {}; });
                     db.ref('bookings').on('value', snap => {
                         const data = snap.val() || {};
                         const all = [];
-                        
-                        const now = new Date();
-                        const offset = now.getTimezoneOffset();
-                        const localToday = new Date(now.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
-
-                        Object.keys(data).forEach(dateKey => {
-                            if (dateKey < localToday) {
-                                db.ref('bookings/' + dateKey).remove(); 
-                            } else {
-                                Object.keys(data[dateKey]).forEach(id => {
-                                    all.push({ date: dateKey, computerId: parseInt(id), ...data[dateKey][id] });
-                                });
-                            }
+                        Object.keys(data).forEach(date => {
+                            Object.keys(data[date]).forEach(id => {
+                                all.push({ date, computerId: parseInt(id), ...data[date][id] });
+                            });
                         });
-                        this.bookings = all;
+                        this.bookings = all.sort((a,b) => a.date.localeCompare(b.date));
                         this.isLoading = false;
                     });
                 },
 
-                checkUserLimit() {
+                resetBookingForm() { this.bookingForm = { name: '', email: '', phone: '' }; this.bookingStep = 1; },
+
+                // לוגיקת המגבלות
+                checkLimits(email) {
                     if (this.adminModeActive) return true;
+                    const userBookings = this.bookings.filter(b => b.email.toLowerCase() === email.toLowerCase());
                     
-                    const email = this.bookingForm.email.trim();
-                    if (!email) return true;
+                    // פעם ביום
+                    if (userBookings.some(b => b.date === this.selectedDate)) {
+                        Swal.fire('מגבלה יומית', 'כבר ביצעת הזמנה ליום זה.', 'warning');
+                        return false;
+                    }
+                    
+                    // מספר פעמים בשבוע (7 ימים מהיום)
+                    const countWeek = userBookings.filter(b => {
+                        const bDate = new Date(b.date);
+                        const diff = (bDate - new Date()) / (1000 * 60 * 60 * 24);
+                        return diff >= -1 && diff <= 7;
+                    }).length;
 
-                    const current = new Date(this.selectedDate);
-                    const day = current.getDay();
-                    const firstDay = new Date(current);
-                    firstDay.setDate(current.getDate() - day);
-                    const lastDay = new Date(firstDay);
-                    lastDay.setDate(firstDay.getDate() + 6);
-
-                    const sStr = firstDay.toISOString().split('T')[0];
-                    const eStr = lastDay.toISOString().split('T')[0];
-
-                    const count = this.bookings.filter(b => 
-                        b.email === email && 
-                        b.date >= sStr && 
-                        b.date <= eStr
-                    ).length;
-
-                    if (count >= this.settings.maxBookingsPerWeek) {
-                        alert(`שגיאה: הגעת למקסימום ההזמנות המותר לשבוע זה (${this.settings.maxBookingsPerWeek}).`);
+                    if (countWeek >= this.settings.maxBookingsPerWeek) {
+                        Swal.fire('מגבלה שבועית', `חרגת ממכסת ההזמנות השבועית (${this.settings.maxBookingsPerWeek}).`, 'warning');
                         return false;
                     }
                     return true;
                 },
 
                 async moveToOtp() {
-                    if (!this.checkUserLimit()) return;
-
-                    if (this.adminModeActive) {
-                        this.finalizeBooking(); // מנהל מדלג על OTP
-                        return;
-                    }
-                    
+                    if (!this.checkLimits(this.bookingForm.email)) return;
+                    if (this.adminModeActive) { this.finalizeBooking(); return; }
                     this.isProcessing = true;
                     try {
                         this.bookingStep = 2;
                         const res = await this.mojoauth.signInWithEmailOTP(this.bookingForm.email);
-                        if (res.authenticated) {
-                            if (this.checkUserLimit()) {
-                                this.finalizeBooking();
-                            } else {
-                                this.bsBookingModal.hide();
-                            }
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        alert("שגיאה בהתחברות. נסה שנית.");
-                        this.bookingStep = 1;
-                    } finally {
-                        this.isProcessing = false;
-                    }
+                        if (res.authenticated) this.finalizeBooking();
+                    } catch (e) { this.bookingStep = 1; Swal.fire('שגיאה', 'קוד לא נשלח', 'error'); } finally { this.isProcessing = false; }
                 },
 
                 finalizeBooking() {
                     const path = `bookings/${this.selectedDate}/${this.currentComputerId}`;
-                    db.ref(path).set({
-                        ...this.bookingForm,
-                        timestamp: firebase.database.ServerValue.TIMESTAMP
-                    }).then(() => {
+                    db.ref(path).set({...this.bookingForm, timestamp: firebase.database.ServerValue.TIMESTAMP}).then(() => {
+                        db.ref(`users/${this.bookingForm.name.trim()}`).set({email: this.bookingForm.email, phone: this.bookingForm.phone});
                         this.bsBookingModal.hide();
-                        alert("ההזמנה בוצעה בהצלחה!");
+                        Swal.fire('בוצע!', '', 'success');
                     });
                 },
 
-                handleCardClick(id) {
-                    if (this.isBooked(id)) return;
-                    this.currentComputerId = id;
-                    this.bookingStep = 1;
-                    this.bsBookingModal.show();
+                lookupUser() {
+                    const u = this.users[this.bookingForm.name.trim()];
+                    if (u) { this.bookingForm.email = u.email; this.bookingForm.phone = u.phone; }
                 },
 
+                async deleteUser(name) {
+                    if (await Swal.fire({title: 'למחוק?', showCancelButton: true}).then(r => r.isConfirmed)) {
+                        db.ref(`users/${name}`).remove();
+                    }
+                },
+
+                handleCardClick(id) { if (!this.isBooked(id)) { this.currentComputerId = id; this.bsBookingModal.show(); } },
                 isBooked(id) { return this.bookings.some(b => b.date === this.selectedDate && b.computerId === id); },
                 getBookingDetails(id) { return this.bookings.find(b => b.date === this.selectedDate && b.computerId === id) || {}; },
                 
                 generateDates() {
                     this.availableDates = [];
-                    const today = new Date();
-                    const daysToShow = this.settings.bookingWindowDays || 14;
-
-                    for (let i = 0; i < daysToShow; i++) {
-                        let d = new Date(today);
-                        d.setDate(today.getDate() + i);
-                        
-                        if(i===0 && !this.selectedDate) this.selectedDate = d.toISOString().split('T')[0];
-
-                        this.availableDates.push({
-                            value: d.toISOString().split('T')[0],
-                            dayName: i === 0 ? 'היום' : (i === 1 ? 'מחר' : 'יום ' + ['א','ב','ג','ד','ה','ו','ש'][d.getDay()]),
-                            formatted: d.getDate() + '/' + (d.getMonth() + 1)
-                        });
+                    for (let i = 0; i < (this.settings.bookingWindowDays || 14); i++) {
+                        let d = new Date(); d.setDate(d.getDate() + i);
+                        const val = d.toISOString().split('T')[0];
+                        if (i === 0 && !this.selectedDate) this.selectedDate = val;
+                        this.availableDates.push({ value: val, dayName: i === 0 ? 'היום' : 'יום ' + ['א','ב','ג','ד','ה','ו','ש'][d.getDay()], formatted: d.getDate() + '/' + (d.getMonth() + 1)});
                     }
                 },
 
-                getAvailabilityText() {
-                    const booked = this.bookings.filter(b => b.date === this.selectedDate).length;
-                    return (this.settings.totalComputers - booked) + ' פנויים מתוך ' + this.settings.totalComputers;
-                },
-
+                getAvailabilityText() { return (this.settings.totalComputers - this.bookings.filter(b => b.date === this.selectedDate).length) + ' פנויים'; },
                 formatDate(iso) { return iso ? iso.split('-').reverse().join('/') : ''; },
-                
-                toggleDarkMode() { 
-                     this.darkMode = !this.darkMode; 
-                     document.documentElement.setAttribute('data-theme', this.darkMode ? 'dark' : 'light');
-                },
-                
-                checkAdmin() {
-                    if (this.adminPassword === '1234') { 
-                        this.adminModeActive = true; // פעיל קבוע
-                        this.tempSettings = {...this.settings}; // טעינת הגדרות
-                    } else {
-                        alert("סיסמה שגויה");
+                toggleDarkMode() { this.darkMode = !this.darkMode; document.documentElement.setAttribute('data-theme', this.darkMode ? 'dark' : 'light'); },
+                checkAdmin() { if (this.adminPassword === '1234') { this.adminModeActive = true; this.tempSettings = {...this.settings}; } else { Swal.fire('טעות', '', 'error'); } },
+                saveSettings() { db.ref('settings').set(this.tempSettings).then(() => { Swal.fire('נשמר', '', 'success'); }); },
+                resetSystem() { if(confirm('לאפס הכל?')) db.ref().remove(); },
+                adminRemoveBooking(date, id) { db.ref(`bookings/${date}/${id}`).remove(); },
+                fetchMyBookings() { this.myBookings = this.bookings.filter(b => b.email.toLowerCase() === this.searchEmail.toLowerCase()); },
+                async cancelViaEmail(date, id) {
+                    const { value: email } = await Swal.fire({ title: 'הזן מייל לביטול', input: 'email', showCancelButton: true });
+                    if (email && email.toLowerCase() === this.getBookingDetails(id).email?.toLowerCase()) {
+                        db.ref(`bookings/${date}/${id}`).remove();
+                        Swal.fire('בוטל', '', 'success');
                     }
-                },
-                
-                saveSettings() {
-                    // ולידציה בסיסית
-                    if(this.tempSettings.totalComputers < 1 || this.tempSettings.bookingWindowDays < 1) {
-                        alert("נא להזין ערכים חיוביים בלבד");
-                        return;
-                    }
-                    db.ref('settings').set(this.tempSettings).then(() => {
-                        alert("ההגדרות נשמרו!");
-                        this.showAdminModal = false; // סגירה אוטומטית אחרי שמירה
-                    });
-                },
-
-                resetSettings() {
-                    if(confirm("האם לאפס את ההגדרות לברירת המחדל?")) {
-                        this.tempSettings = { totalComputers: 10, bookingWindowDays: 14, maxBookingsPerWeek: 2 };
-                        this.saveSettings();
-                    }
-                },
-
-                adminRemoveBooking(id) {
-                    if(confirm("האם למחוק את ההזמנה לצמיתות?")) db.ref(`bookings/${this.selectedDate}/${id}`).remove();
-                },
-                
-                startCancellation(id) {
-                    alert("לביטול הזמנה נא לפנות למנהל המחשבים.");
                 }
             }));
         });
