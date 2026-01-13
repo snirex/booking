@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -226,6 +225,7 @@
                     this.$watch('showAdminModal', v => v ? this.bsAdminModal.show() : this.bsAdminModal.hide());
                     this.$refs.adminModalElement.addEventListener('hidden.bs.modal', () => this.showAdminModal = false);
                     this.$refs.userBookingsModalElement.addEventListener('hidden.bs.modal', () => this.showUserBookingsModal = false);
+		    this.cleanupOldBookings();
 
                     this.listenToFirebase();
                 },
@@ -247,6 +247,25 @@
                 },
 
                 resetBookingForm() { this.bookingForm = { name: '', email: '', phone: '' }; this.bookingStep = 1; },
+
+// פונקציה לניקוי הזמנות ישנות
+cleanupOldBookings() {
+    const today = new Date().toISOString().split('T')[0];
+    const bookingsRef = db.ref('bookings');
+    
+    bookingsRef.once('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        Object.keys(data).forEach(dateKey => {
+            // אם התאריך במערכת קטן מהתאריך של היום - מחק אותו
+            if (dateKey < today) {
+                console.log("Deleting old data for date:", dateKey);
+                bookingsRef.child(dateKey).remove();
+            }
+        });
+    });
+},
 
                 // לוגיקת המגבלות
                 checkLimits(email) {
@@ -344,7 +363,7 @@ async moveToOtp() {
                 getAvailabilityText() { return (this.settings.totalComputers - this.bookings.filter(b => b.date === this.selectedDate).length) + ' פנויים'; },
                 formatDate(iso) { return iso ? iso.split('-').reverse().join('/') : ''; },
                 toggleDarkMode() { this.darkMode = !this.darkMode; document.documentElement.setAttribute('data-theme', this.darkMode ? 'dark' : 'light'); },
-                checkAdmin() { if (this.adminPassword === 'admin') { this.adminModeActive = true; this.tempSettings = {...this.settings}; } else { Swal.fire('טעות', '', 'error'); } },
+                checkAdmin() { if (this.adminPassword === '1234') { this.adminModeActive = true; this.tempSettings = {...this.settings}; } else { Swal.fire('טעות', '', 'error'); } },
                 saveSettings() { db.ref('settings').set(this.tempSettings).then(() => { Swal.fire('נשמר', '', 'success'); }); },
                 resetSystem() { if(confirm('לאפס הכל?')) db.ref().remove(); },
                 adminRemoveBooking(date, id) { db.ref(`bookings/${date}/${id}`).remove(); },
@@ -361,4 +380,3 @@ async moveToOtp() {
     </script>
 </body>
 </html>
-
