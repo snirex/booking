@@ -344,7 +344,7 @@ async moveToOtp() {
                 getAvailabilityText() { return (this.settings.totalComputers - this.bookings.filter(b => b.date === this.selectedDate).length) + ' פנויים'; },
                 formatDate(iso) { return iso ? iso.split('-').reverse().join('/') : ''; },
                 toggleDarkMode() { this.darkMode = !this.darkMode; document.documentElement.setAttribute('data-theme', this.darkMode ? 'dark' : 'light'); },
-                checkAdmin() { if (this.adminPassword === '1234') { this.adminModeActive = true; this.tempSettings = {...this.settings}; } else { Swal.fire('טעות', '', 'error'); } },
+                checkAdmin() { if (this.adminPassword === 'admin') { this.adminModeActive = true; this.tempSettings = {...this.settings}; } else { Swal.fire('טעות', '', 'error'); } },
                 saveSettings() { db.ref('settings').set(this.tempSettings).then(() => { Swal.fire('נשמר', '', 'success'); }); },
                 resetSystem() { if(confirm('לאפס הכל?')) db.ref().remove(); },
                 adminRemoveBooking(date, id) { db.ref(`bookings/${date}/${id}`).remove(); },
@@ -361,3 +361,4 @@ async moveToOtp() {
     </script>
 </body>
 </html>
+
