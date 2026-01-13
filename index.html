@@ -18,7 +18,6 @@
             --shadow: 0 .125rem .25rem rgba(0,0,0,.075);
             --modal-bg: #ffffff;
         }
-
         [data-theme="dark"] {
             --bg-body: #121212;
             --text-main: #e0e0e0;
@@ -41,14 +40,13 @@
         .date-btn { display: inline-block; width: 100px; margin-left: 5px; }
         .date-btn.active { background-color: #0d6efd; color: white; }
         
-        /* עיצוב לווידג'ט של MojoAuth כדי שיתאים לאתר */
         #mojoauth-passwordless-form { margin-top: 20px; }
     </style>
 </head>
 <body>
 
     <div x-data="bookingApp()" x-init="initApp()">
-
+        
         <nav class="navbar navbar-expand-lg shadow-sm mb-4 px-3">
             <a class="navbar-brand fw-bold" href="#" :class="darkMode ? 'text-light' : 'text-dark'">
                 <i class="fas fa-laptop-code text-primary"></i> עין שמר - הזמנת מחשבים
@@ -57,9 +55,10 @@
                 <button @click="toggleDarkMode()" class="btn btn-sm btn-outline-secondary">
                     <i class="fas" :class="darkMode ? 'fa-sun' : 'fa-moon'"></i>
                 </button>
-                <button @click="showAdminModal = true" class="btn btn-outline-secondary btn-sm" :class="adminModeActive ? 'btn-warning text-dark' : ''">
+                <button @click="showAdminModal = true" class="btn btn-sm" 
+                        :class="adminModeActive ? 'btn-warning text-dark fw-bold' : 'btn-outline-secondary'">
                     <i class="fas fa-cog"></i> 
-                    <span x-text="adminModeActive ? 'מצב מנהל' : 'ניהול'"></span>
+                    <span x-text="adminModeActive ? 'מחובר כמנהל' : 'ניהול'"></span>
                 </button>
             </div>
         </nav>
@@ -85,8 +84,10 @@
                     </div>
                 </div>
 
-                <div class="alert alert-info d-flex justify-content-between">
-                    <span><i class="fas fa-calendar-day"></i> תאריך נבחר: <strong x-text="formatDate(selectedDate)"></strong></span>
+                <div class="alert alert-info d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-calendar-day"></i> תאריך: <strong x-text="formatDate(selectedDate)"></strong>
+                    </div>
                     <span class="badge bg-primary" x-text="getAvailabilityText()"></span>
                 </div>
 
@@ -98,13 +99,15 @@
                                  @click="handleCardClick(i)">
                                 <div class="card-body text-center">
                                     <h5 class="card-title">מחשב <span x-text="i"></span></h5>
+                                    
                                     <template x-if="isBooked(i)">
                                         <div>
                                             <div class="text-danger small"><i class="fas fa-lock"></i> תפוס: <span x-text="getBookingDetails(i).name"></span></div>
-                                            <button x-show="adminModeActive" @click.stop="adminRemoveBooking(i)" class="btn btn-sm btn-danger mt-2 w-100">מחק</button>
+                                            <button x-show="adminModeActive" @click.stop="adminRemoveBooking(i)" class="btn btn-sm btn-danger mt-2 w-100">מחק (מנהל)</button>
                                             <button x-show="!adminModeActive" @click.stop="startCancellation(i)" class="btn btn-sm btn-link text-danger mt-1">ביטול</button>
                                         </div>
                                     </template>
+                                    
                                     <template x-if="!isBooked(i)">
                                         <div class="text-success"><i class="fas fa-check-circle"></i> פנוי</div>
                                     </template>
@@ -133,6 +136,7 @@
                                 <div class="mb-3">
                                     <label class="form-label">דואר אלקטרוני</label>
                                     <input type="email" class="form-control" x-model="bookingForm.email" required>
+                                    <div class="form-text small" x-show="!adminModeActive">הגבלה: עד <span x-text="settings.maxBookingsPerWeek"></span> הזמנות בשבוע.</div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">טלפון</label>
@@ -140,7 +144,7 @@
                                 </div>
                                 <button type="submit" class="btn btn-primary w-100" :disabled="isProcessing">
                                     <span x-show="!adminModeActive">שלח קוד אימות</span>
-                                    <span x-show="adminModeActive">שריין כעת (מנהל)</span>
+                                    <span x-show="adminModeActive">שריין כעת (מנהל - עוקף אימות)</span>
                                 </button>
                             </form>
                         </div>
@@ -158,20 +162,42 @@
         <div class="modal fade" id="adminModal" tabindex="-1" x-ref="adminModalElement">
             <div class="modal-dialog">
                 <div class="modal-content">
-                    <div class="modal-header"><h5>ניהול מערכת</h5></div>
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title"><i class="fas fa-user-shield"></i> ניהול מערכת</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
                     <div class="modal-body">
-                        <div x-show="!isAdminAuthenticated">
-                            <input type="password" class="form-control mb-2" x-model="adminPassword" placeholder="סיסמת מנהל">
-                            <button @click="checkAdmin()" class="btn btn-primary w-100">כניסה</button>
+                        
+                        <div x-show="!adminModeActive">
+                            <p class="text-muted mb-3">נא להזין סיסמת ניהול לעריכת הגדרות ומחיקת הזמנות.</p>
+                            <input type="password" class="form-control mb-2" x-model="adminPassword" placeholder="סיסמה" @keyup.enter="checkAdmin()">
+                            <button @click="checkAdmin()" class="btn btn-primary w-100">כניסה למערכת</button>
                         </div>
-                        <div x-show="isAdminAuthenticated">
-                            <div class="form-check form-switch mb-3">
-                                <input class="form-check-input" type="checkbox" x-model="adminModeActive">
-                                <label class="form-check-label">מצב עריכה פעיל</label>
+
+                        <div x-show="adminModeActive">
+                            <div class="alert alert-success py-2"><i class="fas fa-check"></i> מצב מנהל פעיל</div>
+                            
+                            <h6 class="border-bottom pb-2 mb-3">הגדרות כלליות</h6>
+
+                            <div class="mb-2">
+                                <label class="form-label">כמות מחשבים כוללת:</label>
+                                <input type="number" class="form-control" x-model.number="tempSettings.totalComputers" min="1">
                             </div>
-                            <label>כמות מחשבים:</label>
-                            <input type="number" class="form-control mb-2" x-model.number="tempSettings.totalComputers">
-                            <button @click="saveSettings()" class="btn btn-success w-100">שמור הגדרות בענן</button>
+
+                            <div class="mb-2">
+                                <label class="form-label">כמה ימים לפתוח להזמנה:</label>
+                                <input type="number" class="form-control" x-model.number="tempSettings.bookingWindowDays" min="1">
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label">מקסימום הזמנות למשתמש בשבוע:</label>
+                                <input type="number" class="form-control" x-model.number="tempSettings.maxBookingsPerWeek" min="1">
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button @click="saveSettings()" class="btn btn-success"><i class="fas fa-save"></i> שמור שינויים</button>
+                                <button @click="resetSettings()" class="btn btn-outline-danger btn-sm"><i class="fas fa-history"></i> איפוס לברירת מחדל</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -187,21 +213,24 @@
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 
     <script>
-        // 1. קונפיגורציה (מתוקנת לאירופה)
         const firebaseConfig = {
             apiKey: "AIzaSyCKCHyKJTkXYtCS2p3J027jJfmI04npk7I",
             authDomain: "en-shemer-booking.firebaseapp.com",
             databaseURL: "https://en-shemer-booking-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "en-shemer-booking"
         };
-        const MOJO_AUTH_KEY = "6383ede4-8f58-40f6-841a-df025cd261c3";//"8bfa0722-f07a-462d-8467-e305d7de95c3";
+        const MOJO_AUTH_KEY = "6383ede4-8f58-40f6-841a-df025cd261c3"; 
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
         document.addEventListener('alpine:init', () => {
             Alpine.data('bookingApp', () => ({
-                settings: { totalComputers: 10, bookingWindowDays: 14, maxBookingsPerWeek: 2 },
+                settings: { 
+                    totalComputers: 10, 
+                    bookingWindowDays: 14, 
+                    maxBookingsPerWeek: 2 
+                },
                 tempSettings: {},
                 bookings: [],
                 isLoading: true,
@@ -212,13 +241,14 @@
                 currentComputerId: null,
                 bookingStep: 1,
                 bookingForm: { name: '', email: '', phone: '' },
-                adminModeActive: false,
-                isAdminAuthenticated: false,
+                
+                // Admin State
+                adminModeActive: false, // האם המשתמש במצב מנהל כרגע
                 adminPassword: '',
                 showAdminModal: false,
 
                 async initApp() {
-                    // אתחול MojoAuth עם הקונטיינר
+                    // Initialize MojoAuth
                     this.mojoauth = new MojoAuth(MOJO_AUTH_KEY, {
                         container: { id: "mojoauth-passwordless-form" },
                         source: [{ type: "email", feature: "otp" }],
@@ -226,35 +256,52 @@
                     });
 
                     this.generateDates();
-                    this.selectedDate = this.availableDates[0].value;
                     
-                    // מודאלים
+                    // Modals Initialization
                     this.bsBookingModal = new bootstrap.Modal(this.$refs.bookingModalElement);
                     this.bsAdminModal = new bootstrap.Modal(this.$refs.adminModalElement);
-                    this.$watch('showAdminModal', val => val ? this.bsAdminModal.show() : this.bsAdminModal.hide());
+
+                    // Watchers
+                    this.$watch('showAdminModal', val => {
+                        if (val) {
+                            // אם כבר מחובר כמנהל, טען את ההגדרות העדכניות לעריכה
+                            if (this.adminModeActive) {
+                                this.tempSettings = {...this.settings};
+                            }
+                            this.bsAdminModal.show();
+                        } else {
+                            this.bsAdminModal.hide();
+                        }
+                    });
+
+                    // *** תיקון קריטי: סנכרון סגירת המודאל עם Alpine ***
+                    this.$refs.adminModalElement.addEventListener('hidden.bs.modal', () => {
+                        this.showAdminModal = false;
+                        this.adminPassword = ''; // ניקוי שדה סיסמה ליתר ביטחון
+                    });
 
                     this.listenToFirebase();
                 },
 
                 listenToFirebase() {
-                    // האזנה להגדרות
                     db.ref('settings').on('value', snap => {
-                        if (snap.val()) this.settings = snap.val();
+                        if (snap.val()) {
+                            this.settings = snap.val();
+                            this.generateDates();
+                        }
                     });
 
-                    // האזנה להזמנות + ניקוי אוטומטי
                     db.ref('bookings').on('value', snap => {
                         const data = snap.val() || {};
                         const all = [];
                         
-                        // חישוב תאריך היום בישראל לניקוי
                         const now = new Date();
                         const offset = now.getTimezoneOffset();
                         const localToday = new Date(now.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
 
                         Object.keys(data).forEach(dateKey => {
                             if (dateKey < localToday) {
-                                db.ref('bookings/' + dateKey).remove(); // ניקוי אוטומטי
+                                db.ref('bookings/' + dateKey).remove(); 
                             } else {
                                 Object.keys(data[dateKey]).forEach(id => {
                                     all.push({ date: dateKey, computerId: parseInt(id), ...data[dateKey][id] });
@@ -266,23 +313,57 @@
                     });
                 },
 
+                checkUserLimit() {
+                    if (this.adminModeActive) return true;
+                    
+                    const email = this.bookingForm.email.trim();
+                    if (!email) return true;
+
+                    const current = new Date(this.selectedDate);
+                    const day = current.getDay();
+                    const firstDay = new Date(current);
+                    firstDay.setDate(current.getDate() - day);
+                    const lastDay = new Date(firstDay);
+                    lastDay.setDate(firstDay.getDate() + 6);
+
+                    const sStr = firstDay.toISOString().split('T')[0];
+                    const eStr = lastDay.toISOString().split('T')[0];
+
+                    const count = this.bookings.filter(b => 
+                        b.email === email && 
+                        b.date >= sStr && 
+                        b.date <= eStr
+                    ).length;
+
+                    if (count >= this.settings.maxBookingsPerWeek) {
+                        alert(`שגיאה: הגעת למקסימום ההזמנות המותר לשבוע זה (${this.settings.maxBookingsPerWeek}).`);
+                        return false;
+                    }
+                    return true;
+                },
+
                 async moveToOtp() {
+                    if (!this.checkUserLimit()) return;
+
                     if (this.adminModeActive) {
-                        this.finalizeBooking();
+                        this.finalizeBooking(); // מנהל מדלג על OTP
                         return;
                     }
                     
                     this.isProcessing = true;
                     try {
-                        // הפעלת MojoAuth
                         this.bookingStep = 2;
                         const res = await this.mojoauth.signInWithEmailOTP(this.bookingForm.email);
                         if (res.authenticated) {
-                            this.finalizeBooking();
+                            if (this.checkUserLimit()) {
+                                this.finalizeBooking();
+                            } else {
+                                this.bsBookingModal.hide();
+                            }
                         }
                     } catch (e) {
                         console.error(e);
-                        alert("שגיאה בהתחברות. וודא שהדומיין מאושר ב-MojoAuth");
+                        alert("שגיאה בהתחברות. נסה שנית.");
                         this.bookingStep = 1;
                     } finally {
                         this.isProcessing = false;
@@ -313,9 +394,14 @@
                 generateDates() {
                     this.availableDates = [];
                     const today = new Date();
-                    for (let i = 0; i < 14; i++) {
+                    const daysToShow = this.settings.bookingWindowDays || 14;
+
+                    for (let i = 0; i < daysToShow; i++) {
                         let d = new Date(today);
                         d.setDate(today.getDate() + i);
+                        
+                        if(i===0 && !this.selectedDate) this.selectedDate = d.toISOString().split('T')[0];
+
                         this.availableDates.push({
                             value: d.toISOString().split('T')[0],
                             dayName: i === 0 ? 'היום' : (i === 1 ? 'מחר' : 'יום ' + ['א','ב','ג','ד','ה','ו','ש'][d.getDay()]),
@@ -330,27 +416,49 @@
                 },
 
                 formatDate(iso) { return iso ? iso.split('-').reverse().join('/') : ''; },
+                
                 toggleDarkMode() { 
-                    this.darkMode = !this.darkMode; 
-                    document.documentElement.setAttribute('data-theme', this.darkMode ? 'dark' : 'light');
+                     this.darkMode = !this.darkMode; 
+                     document.documentElement.setAttribute('data-theme', this.darkMode ? 'dark' : 'light');
                 },
+                
                 checkAdmin() {
-                    if (this.adminPassword === '1234') { // שנה סיסמה כאן
-                        this.isAdminAuthenticated = true;
-                        this.adminModeActive = true;
-                        this.tempSettings = {...this.settings};
+                    if (this.adminPassword === '1234') { 
+                        this.adminModeActive = true; // פעיל קבוע
+                        this.tempSettings = {...this.settings}; // טעינת הגדרות
+                    } else {
+                        alert("סיסמה שגויה");
                     }
                 },
+                
                 saveSettings() {
-                    db.ref('settings').set(this.tempSettings).then(() => alert("נשמר!"));
+                    // ולידציה בסיסית
+                    if(this.tempSettings.totalComputers < 1 || this.tempSettings.bookingWindowDays < 1) {
+                        alert("נא להזין ערכים חיוביים בלבד");
+                        return;
+                    }
+                    db.ref('settings').set(this.tempSettings).then(() => {
+                        alert("ההגדרות נשמרו!");
+                        this.showAdminModal = false; // סגירה אוטומטית אחרי שמירה
+                    });
                 },
+
+                resetSettings() {
+                    if(confirm("האם לאפס את ההגדרות לברירת המחדל?")) {
+                        this.tempSettings = { totalComputers: 10, bookingWindowDays: 14, maxBookingsPerWeek: 2 };
+                        this.saveSettings();
+                    }
+                },
+
                 adminRemoveBooking(id) {
-                    if(confirm("למחוק?")) db.ref(`bookings/${this.selectedDate}/${id}`).remove();
+                    if(confirm("האם למחוק את ההזמנה לצמיתות?")) db.ref(`bookings/${this.selectedDate}/${id}`).remove();
+                },
+                
+                startCancellation(id) {
+                    alert("לביטול הזמנה נא לפנות למנהל המחשבים.");
                 }
             }));
         });
     </script>
 </body>
 </html>
-
-
