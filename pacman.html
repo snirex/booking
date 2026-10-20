@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>פק-מן שורשים</title>
+<style>
+:root{--bg:#0b0b1e;--panel:#16163a;--wall:#3b4cff;--ink:#f4f4ff;--gold:#ffd93b;--ok:#2ecc71;--bad:#ff4d4d;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,"Segoe UI",sans-serif;display:flex;flex-direction:column;align-items:center;min-height:100vh;user-select:none;-webkit-user-select:none}
+#top{width:100%;max-width:560px;padding:10px 12px 6px;display:flex;flex-direction:column;gap:6px}
+#q{background:var(--panel);border-radius:12px;padding:10px 14px;font-size:clamp(17px,4.6vw,24px);font-weight:bold;text-align:center}
+#q b{color:var(--gold);letter-spacing:2px;direction:rtl;unicode-bidi:isolate}
+#st{display:flex;justify-content:space-between;font-size:16px}
+#wrap{position:relative;width:100%;max-width:560px;padding:0 8px}
+canvas{width:100%;height:auto;display:block;background:#000;border-radius:12px;touch-action:none}
+#ov{position:absolute;inset:0 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;background:rgba(5,5,20,.82);border-radius:12px;padding:16px}
+#ov.fb{background:rgba(5,5,20,.55);pointer-events:none}
+#ov h1{margin:0;font-size:clamp(26px,8vw,44px);color:var(--gold)}
+#ov p{margin:0;font-size:clamp(15px,4vw,20px);line-height:1.5}
+#ov .big{font-size:clamp(70px,22vw,130px);line-height:1}
+button{font:inherit;font-weight:bold;font-size:20px;background:var(--gold);color:#222;border:0;border-radius:999px;padding:10px 30px;cursor:pointer}
+#pad{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(2,56px);gap:6px;margin:10px 0 14px;direction:ltr}
+#pad button{padding:0;font-size:24px;border-radius:14px;background:var(--panel);color:var(--ink);touch-action:manipulation}
+#pad .u{grid-column:2;grid-row:1}#pad .l{grid-column:1;grid-row:2}#pad .d{grid-column:2;grid-row:2}#pad .r{grid-column:3;grid-row:2}
+@media (hover:hover) and (pointer:fine){#pad{display:none}}
+</style>
+</head>
+<body>
+<div id="top">
+  <div id="q">...</div>
+  <div id="st"><span>ניקוד: <b id="sc">0</b></span><span id="pr">0/8</span><span id="lv"></span></div>
+</div>
+<div id="wrap">
+  <canvas id="c" width="544" height="448"></canvas>
+  <div id="ov"><h1>פק-מן שורשים</h1><p>אכלו את המילה שמגיעה מהשורש שבשאלה.<br>התחמקו מהרוחות! 8 תשובות נכונות מנצחות.<br>חצים / WASD / החלקה עם האצבע</p><button id="go">התחל</button></div>
+</div>
+<div id="pad"><button class="u" data-d="0,-1">▲</button><button class="l" data-d="-1,0">◀</button><button class="d" data-d="0,1">▼</button><button class="r" data-d="1,0">▶</button></div>
+<script>
+const M=["#################","#.......#.......#","#.##.##.#.##.##.#","#...............#","#.##.#.###.#.##.#","#....#..#..#....#","####.##.#.##.####","#...............#","####.##.#.##.####","#....#..#..#....#","#.##.#.###.#.##.#","#.##...........##","#...............#","#################"];
+const R=M.length,C=M[0].length,S=32,GOAL=8;
+const SLOTS=[[3,1],[13,1],[3,12],[13,12]];
+const ROOTS={"ה.ל.כ":["הולך","הלך","מהלך","הליכה"],"כ.ת.ב":["כתב","מכתב","כותב","כתובת"],"ש.מ.ר":["שומר","שמירה","משמר","נשמר"],"ל.מ.ד":["למד","מלמד","תלמיד","לימוד"],"א.כ.ל":["אוכל","אכילה","מאכל","אכלן"],"ג.ד.ל":["גדול","גידול","מגדל","גדלה"],"פ.ת.ח":["פותח","מפתח","פתיחה","פתח"],"י.ש.ב":["יושב","מושב","ישיבה","תושב"],"ס.פ.ר":["ספר","סיפור","סופר","מספר"],"ש.ל.ח":["שולח","שליח","משלוח","שלחן"]};
+const cv=document.getElementById("c"),g=cv.getContext("2d"),ov=document.getElementById("ov");
+const $=id=>document.getElementById(id);
+let dots,words,pac,ghosts,score,lives,solved,state="start",root,answer,lastRoot,fbT=0,t=0;
+const free=(x,y)=>M[y]&&M[y][x]!=="#";
+function step(e,sp,pick){
+  while(sp>1e-9){
+    const cx=Math.round(e.x),cy=Math.round(e.y);
+    if(Math.abs(e.x-cx)<1e-9&&Math.abs(e.y-cy)<1e-9){
+      e.x=cx;e.y=cy;pick(e);
+      if((!e.dx&&!e.dy)||!free(cx+e.dx,cy+e.dy)){e.dx=e.dy=0;return}
+    }
+    const tx=e.dx>0?Math.floor(e.x+1e-9)+1:e.dx<0?Math.ceil(e.x-1e-9)-1:e.x;
+    const ty=e.dy>0?Math.floor(e.y+1e-9)+1:e.dy<0?Math.ceil(e.y-1e-9)-1:e.y;
+    const m=Math.min(sp,Math.abs(tx-e.x)+Math.abs(ty-e.y));
+    e.x+=e.dx*m;e.y+=e.dy*m;sp-=m;
+  }
+}
+function resetPos(){
+  pac={x:8,y:7,dx:0,dy:0,nx:0,ny:0,ang:0};
+  ghosts=[{x:8,y:3,dx:0,dy:0,sp:4,chase:.7,col:"#ff5555",delay:2},{x:8,y:11,dx:0,dy:0,sp:3.5,chase:.35,col:"#55ddff",delay:3}];
+}
+function fillDots(){dots=M.map((r,y)=>[...r].map((ch,x)=>ch==="."&&!SLOTS.some(s=>s[0]===x&&s[1]===y)&&!(x===8&&y===7)))}
+function newRound(){
+  const keys=Object.keys(ROOTS).filter(k=>k!==lastRoot);
+  root=lastRoot=keys[Math.random()*keys.length|0];
+  const pick=a=>a[Math.random()*a.length|0];
+  answer=pick(ROOTS[root]);
+  const others=Object.keys(ROOTS).filter(k=>k!==root).sort(()=>Math.random()-.5).slice(0,3);
+  const ws=[answer,...others.map(k=>pick(ROOTS[k]))].sort(()=>Math.random()-.5);
+  words=ws.map((w,i)=>({t:w,x:SLOTS[i][0],y:SLOTS[i][1],ok:w===answer}));
+  $("q").innerHTML="איזו מילה מהשורש: <b>"+root+"</b> ?";
+}
+function hud(){$("sc").textContent=score;$("pr").textContent=solved+"/"+GOAL;$("lv").textContent="❤".repeat(lives)+"🖤".repeat(3-lives)}
+function start(){score=0;lives=3;solved=0;fillDots();resetPos();newRound();hud();ov.style.display="none";state="play"}
+function show(html,btn,fb){ov.className=fb?"fb":"";ov.innerHTML=html+(btn?'<button id="go">'+btn+"</button>":"");ov.style.display="flex";const b=$("go");if(b)b.onclick=start}
+function feedback(ok,w){
+  state="fb";fbT=1.1;
+  show(ok?'<div class="big" style="color:var(--ok)">✔</div><h1 style="color:var(--ok)">כל הכבוד!</h1>':'<div class="big" style="color:var(--bad)">✖</div><p>התשובה הנכונה: <b style="color:var(--gold)">'+answer+"</b></p>",null,true);
+}
+function setDir(dx,dy){
+  pac.nx=dx;pac.ny=dy;
+  if((dx||dy)&&dx===-pac.dx&&dy===-pac.dy){pac.dx=dx;pac.dy=dy}
+  if(state==="start")return;
+}
+addEventListener("keydown",e=>{
+  const m={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1],a:[-1,0],d:[1,0],w:[0,-1],s:[0,1]}[e.key];
+  if(m){e.preventDefault();setDir(...m)}
+});
+document.querySelectorAll("#pad button").forEach(b=>{
+  const f=e=>{e.preventDefault();setDir(...b.dataset.d.split(",").map(Number))};
+  b.addEventListener("touchstart",f,{passive:false});b.addEventListener("mousedown",f);
+});
+let sx,sy;
+cv.addEventListener("touchstart",e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+cv.addEventListener("touchmove",e=>{
+  e.preventDefault();const dx=e.touches[0].clientX-sx,dy=e.touches[0].clientY-sy;
+  if(Math.hypot(dx,dy)>18){Math.abs(dx)>Math.abs(dy)?setDir(Math.sign(dx),0):setDir(0,Math.sign(dy));sx=e.touches[0].clientX;sy=e.touches[0].clientY}
+},{passive:false});
+function ghostPick(gh){
+  const cx=gh.x,cy=gh.y,rev=[-gh.dx,-gh.dy];
+  let opts=[[1,0],[-1,0],[0,1],[0,-1]].filter(d=>free(cx+d[0],cy+d[1])&&!(d[0]===rev[0]&&d[1]===rev[1]));
+  if(!opts.length)opts=[rev];
+  let d;
+  if(Math.random()<gh.chase){d=opts.reduce((a,b)=>Math.hypot(cx+b[0]-pac.x,cy+b[1]-pac.y)<Math.hypot(cx+a[0]-pac.x,cy+a[1]-pac.y)?b:a)}
+  else d=opts[Math.random()*opts.length|0];
+  gh.dx=d[0];gh.dy=d[1];
+}
+function update(dt){
+  t+=dt;
+  if(state==="fb"){fbT-=dt;if(fbT<=0){
+    if(solved>=GOAL){state="over";show('<h1>ניצחון! 🏆</h1><p>ענית נכון על '+GOAL+' שאלות<br>ניקוד: '+score+"</p>","שחקו שוב")}
+    else if(lives<=0){state="over";show("<h1>המשחק נגמר</h1><p>ניקוד: "+score+"<br>תשובות נכונות: "+solved+"</p>","נסו שוב")}
+    else{ov.style.display="none";state="play"}
+  }return}
+  if(state!=="play")return;
+  step(pac,5.5*dt,p=>{
+    if((p.nx||p.ny)&&free(p.x+p.nx,p.y+p.ny)){p.dx=p.nx;p.dy=p.ny}
+  });
+  if(pac.dx||pac.dy)pac.ang=Math.atan2(pac.dy,pac.dx);
+  const px=Math.round(pac.x),py=Math.round(pac.y);
+  if(dots[py][px]){dots[py][px]=false;score+=1;if(!dots.some(r=>r.some(Boolean)))fillDots();hud()}
+  for(const w of words){
+    if(w.gone||Math.hypot(w.x-pac.x,w.y-pac.y)>.6)continue;
+    w.gone=true;
+    if(w.ok){solved++;score+=100;hud();newRound();feedback(true)}
+    else{lives--;score=Math.max(0,score-20);hud();feedback(false,w);words=words.filter(x=>x.ok);resetPos()}
+    return;
+  }
+  for(const gh of ghosts){
+    if(gh.delay>0){gh.delay-=dt}else step(gh,gh.sp*dt,ghostPick);
+    if(Math.hypot(gh.x-pac.x,gh.y-pac.y)<.7&&state==="play"){lives--;hud();resetPos();state="fb";fbT=1;show('<div class="big">👻</div><p>נתפסת!</p>',null,true);return}
+  }
+}
+function pill(x,y,txt,col){
+  g.font="bold 15px Arial";g.direction="rtl";
+  const w=g.measureText(txt).width+16,h=24,cx=(x+.5)*S,cy=(y+.5)*S;
+  g.fillStyle="#1b1b4d";g.strokeStyle=col;g.lineWidth=2;
+  g.beginPath();g.roundRect(cx-w/2,cy-h/2,w,h,8);g.fill();g.stroke();
+  g.fillStyle="#fff";g.textAlign="center";g.textBaseline="middle";g.fillText(txt,cx,cy+1);
+}
+function draw(){
+  g.fillStyle="#000";g.fillRect(0,0,cv.width,cv.height);
+  g.fillStyle="#1a2299";g.strokeStyle="#5b6bff";g.lineWidth=2;
+  for(let y=0;y<R;y++)for(let x=0;x<C;x++)if(M[y][x]==="#"){g.beginPath();g.roundRect(x*S+2,y*S+2,S-4,S-4,6);g.fill();g.stroke()}
+  if(!dots)return;
+  g.fillStyle="#ffe9a8";
+  for(let y=0;y<R;y++)for(let x=0;x<C;x++)if(dots[y][x]){g.beginPath();g.arc((x+.5)*S,(y+.5)*S,3,0,7);g.fill()}
+  for(const w of words)if(!w.gone)pill(w.x,w.y,w.t,"#ffb84d");
+  const px=(pac.x+.5)*S,py=(pac.y+.5)*S,m=(pac.dx||pac.dy||state==="play")?Math.abs(Math.sin(t*12))*.4:.2;
+  g.fillStyle="#ffd93b";g.beginPath();g.moveTo(px,py);g.arc(px,py,13,pac.ang+m,pac.ang+Math.PI*2-m);g.closePath();g.fill();
+  for(const gh of ghosts){
+    const x=(gh.x+.5)*S,y=(gh.y+.5)*S;
+    g.fillStyle=gh.col;g.beginPath();g.arc(x,y-1,12,Math.PI,0);g.lineTo(x+12,y+12);
+    for(let i=0;i<3;i++)g.lineTo(x+12-(i+1)*8-(i%2?0:0),y+(i%2?12:8));
+    g.lineTo(x-12,y+12);g.closePath();g.fill();
+    g.fillStyle="#fff";g.beginPath();g.arc(x-4,y-3,3.5,0,7);g.arc(x+5,y-3,3.5,0,7);g.fill();
+    g.fillStyle="#113";g.beginPath();g.arc(x-4+gh.dx*1.5,y-3+gh.dy*1.5,1.8,0,7);g.arc(x+5+gh.dx*1.5,y-3+gh.dy*1.5,1.8,0,7);g.fill();
+  }
+}
+let last=performance.now();
+function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;update(dt);draw();requestAnimationFrame(loop)}
+fillDots();resetPos();words=[];lives=3;solved=0;score=0;hud();
+$("go").onclick=start;
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
